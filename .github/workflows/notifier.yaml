@@ -1,0 +1,60 @@
+name: Build Deployment Notifier Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: "Application name (e.g., netwin, nossis, userportal)"
+        required: true
+      env:
+        description: "Environment (Production / Staging)"
+        required: true
+        default: "Production"
+      date:
+        description: "Deployment Date (YYYY-MM-DD)"
+        required: true
+      time:
+        description: "Deployment Time (HH:MM)"
+        required: true
+      downtime:
+        description: "Expected Downtime (e.g., 30 minutes)"
+        required: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Show provided inputs
+        run: |
+          echo Application: ${{ github.event.inputs.app }}
+          echo Environment: ${{ github.event.inputs.env }}
+          echo Date: ${{ github.event.inputs.date }}
+          echo Time: ${{ github.event.inputs.time }}
+          echo Downtime: ${{ github.event.inputs.downtime }}
+
+      - name: Create package folder
+        run: |
+          mkdir package
+          xcopy deployment-notifier package\deployment-notifier /E /I /Y
+
+      - name: Zip with inputs
+        run: |
+          $app="${{ github.event.inputs.app }}"
+          $env="${{ github.event.inputs.env }}"
+          $date="${{ github.event.inputs.date }}"
+          $time="${{ github.event.inputs.time }}"
+          $downtime="${{ github.event.inputs.downtime }}"
+
+          $filename="deployment-notifier_${app}_${env}_${date}_${time}_${downtime}.zip"
+          echo "Creating $filename"
+          powershell Compress-Archive -Path package\* -DestinationPath $filename
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-notifier
+          path: "*.zip"
