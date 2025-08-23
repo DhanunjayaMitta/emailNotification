@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout the repository
+      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -59,7 +59,11 @@ jobs:
           # URL-encode spaces for downtime
           DOWNTIME_ENCODED=$(echo "$DOWNTIME" | sed 's/ /%20/g')
 
-          URL="https://<your-username>.github.io/<your-repo>/?app=${APP}&env=${ENV}&date=${DATE}&time=${TIME}&downtime=${DOWNTIME_ENCODED}"
+          # Dynamically get username and repo
+          USERNAME=${GITHUB_REPOSITORY_OWNER}
+          REPO=$(basename $GITHUB_REPOSITORY)
+
+          URL="https://${USERNAME}.github.io/${REPO}/?app=${APP}&env=${ENV}&date=${DATE}&time=${TIME}&downtime=${DOWNTIME_ENCODED}"
 
           echo "✅ Deployment Notifier is ready! Open this URL in your browser:"
           echo "$URL"
