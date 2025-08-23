@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Deployment Notifier</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: Arial; padding: 20px; max-width: 600px; margin: auto; }
+    label, select, input { display: block; margin: 10px 0; width: 100%; padding: 8px; }
+    button { padding: 10px 15px; margin-top: 15px; }
+    #output { white-space: pre-wrap; margin-top: 20px; background: #f0f0f0; padding: 10px; }
+  </style>
+</head>
+<body>
+
+  <h2>Deployment Notification Generator</h2>
+
+  <label for="app">Application:</label>
+  <select id="app" onchange="loadEmailsForApp()">
+    <option value="">-- Select Application --</option>
+    <option value="netwin">Netwin</option>
+    <option value="nossis">NOSSIS</option>
+    <option value="userportal">UserPortal</option>
+  </select>
+
+  <label for="env">Environment:</label>
+  <select id="env">
+    <option value="Production">Production</option>
+    <option value="Staging">Staging</option>
+  </select>
+
+  <label for="date">Deployment Date:</label>
+  <input type="date" id="date">
+
+  <label for="time">Deployment Time:</label>
+  <input type="time" id="time">
+
+  <label for="downtime">Expected Downtime:</label>
+  <input type="text" id="downtime" placeholder="e.g., 30 minutes">
+
+  <button onclick="generateEmail()">Generate Email</button>
+
+  <div id="output"></div>
+
+  <script>
+    let userEmails = [];
+
+    function loadEmailsForApp() {
+      const app = document.getElementById('app').value;
+      userEmails = [];
+
+      if (!app) return;
+
+      fetch(`users/${app}.xlsx`)
+        .then(response => response.arrayBuffer())
+        .then(data => {
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const json = XLSX.utils.sheet_to_json(sheet);
+
+          userEmails = json.map(row => row.Email).filter(email => email);
+
+          alert(`Loaded ${userEmails.length} email(s) for ${app}`);
+        })
+        .catch(error => {
+          console.error("Error loading Excel:", error);
+          alert("Failed to load email list for app: " + app);
+        });
+    }
+
+    function generateEmail() {
+      const app = document.getElementById("app").value;
+      const env = document.getElementById("env").value;
+      const date = document.getElementById("date").value;
+      const time = document.getElementById("time").value;
+      const downtime = document.getElementById("downtime").value;
+
+      if (!app || !env || !date || !time || !downtime || userEmails.length === 0) {
+        alert("Please fill all fields and make sure email list is loaded.");
+        return;
+      }
+
+      const subject = `[${app}] Scheduled Deployment Notification`;
+      const body = `
+Hi Team,
+
+Please be informed of a scheduled deployment for the application ${app} in the ${env} environment.
+
+ Deployment Date: ${date}  
+ Deployment Time: ${time}  
+ Expected Downtime: ${downtime}
+
+During this time, access to the application may be limited.
+
+Thank you for your understanding.  
+OXG DevOps Team
+`.trim();
+
+      const bcc = userEmails.join(';');
+
+      const mailto = `mailto:?subject=${encodeURIComponent(subject)}&bcc=${encodeURIComponent(bcc)}&body=${encodeURIComponent(body)}`;
+
+      document.getElementById("output").innerHTML = `
+<b>BCC:</b><br>${bcc}<br><br>
+<b>Subject:</b> ${subject}<br><br>
+<b>Body:</b><br><pre>${body}</pre><br>
+<button onclick="window.location.href='${mailto}'">📧 Open in Outlook</button>
+      `;
+    }
+  </script>
+
+</body>
+</html>
