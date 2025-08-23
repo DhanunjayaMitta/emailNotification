@@ -27,22 +27,37 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
+      # 1️⃣ Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2️⃣ Prepare public folder
       - name: Prepare public folder
         run: |
           mkdir public
           cp -r deployment-notifier/* public/
 
+      # 3️⃣ Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
 
-      - name: Print Access URL
+      # 4️⃣ Print clickable URL with prefilled inputs
+      - name: Show Deployment Notifier URL
         run: |
-          echo "Open your Deployment Notifier here:"
-          echo "https://<your-username>.github.io/<your-repo>/?app=${{ github.event.inputs.app }}&env=${{ github.event.inputs.env }}&date=${{ github.event.inputs.date }}&time=${{ github.event.inputs.time }}&downtime=${{ github.event.inputs.downtime }}"
+          APP=${{ github.event.inputs.app }}
+          ENV=${{ github.event.inputs.env }}
+          DATE=${{ github.event.inputs.date }}
+          TIME=${{ github.event.inputs.time }}
+          DOWNTIME=${{ github.event.inputs.downtime }}
+
+          # URL-encode spaces for downtime
+          DOWNTIME_ENCODED=$(echo $DOWNTIME | sed 's/ /%20/g')
+
+          URL="https://<your-username>.github.io/<your-repo>/?app=${APP}&env=${ENV}&date=${DATE}&time=${TIME}&downtime=${DOWNTIME_ENCODED}"
+          echo "Deployment Notifier is ready! Open this URL in your browser:"
+          echo "$URL"
