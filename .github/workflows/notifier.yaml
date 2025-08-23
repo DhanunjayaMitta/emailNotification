@@ -1,72 +1,48 @@
+name: Deploy Deployment Notifier
+
 on:
   workflow_dispatch:
     inputs:
       app:
-        description: "Application name (e.g., netwin, nossis, userportal)"
+        description: "Application name (e.g., netwin)"
         required: true
         type: string
-
       env:
-        description: "Environment (e.g., Production or Staging)"
+        description: "Environment (e.g., Production)"
         required: true
         type: string
-
       date:
-        description: "Deployment Date (format: YYYY-MM-DD, e.g., 2025-08-27)"
+        description: "Deployment Date (YYYY-MM-DD, e.g., 2025-08-27)"
         required: true
         type: string
-
       time:
-        description: "Deployment Time (format: HH:MM in 24h, e.g., 17:00)"
+        description: "Deployment Time (HH:MM, e.g., 17:00)"
         required: true
         type: string
-
       downtime:
-        description: "Expected Downtime (e.g., 30 minutes, 1 hour)"
+        description: "Expected Downtime (e.g., 30 minutes)"
         required: true
         type: string
 
 jobs:
-  build:
-    runs-on: windows-latest
-
+  deploy:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Show provided inputs
+      - name: Prepare public folder
         run: |
-          echo Application: ${{ github.event.inputs.app }}
-          echo Environment: ${{ github.event.inputs.env }}
-          echo Date: ${{ github.event.inputs.date }}
-          echo Time: ${{ github.event.inputs.time }}
-          echo Downtime: ${{ github.event.inputs.downtime }}
+          mkdir public
+          cp -r deployment-notifier/* public/
 
-      - name: Create package folder
-        run: |
-          mkdir package
-          xcopy deployment-notifier package\deployment-notifier /E /I /Y
-
-      - name: Zip with inputs
-        shell: pwsh
-        run: |
-          $app="${{ github.event.inputs.app }}"
-          $env="${{ github.event.inputs.env }}"
-          $date="${{ github.event.inputs.date }}"
-          $time="${{ github.event.inputs.time }}"
-          $downtime="${{ github.event.inputs.downtime }}"
-
-          # sanitize values for filename
-          $date = $date -replace ":", "-"
-          $time = $time -replace ":", "-"
-          $downtime = $downtime -replace " ", "_"
-
-          $filename="deployment-notifier_${app}_${env}_${date}_${time}_${downtime}.zip"
-          echo "Creating $filename"
-          Compress-Archive -Path package\* -DestinationPath $filename
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          name: deployment-notifier
-          path: "*.zip"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+
+      - name: Print Access URL
+        run: |
+          echo "Open your Deployment Notifier here:"
+          echo "https://<your-username>.github.io/<your-repo>/?app=${{ github.event.inputs.app }}&env=${{ github.event.inputs.env }}&date=${{ github.event.inputs.date }}&time=${{ github.event.inputs.time }}&downtime=${{ github.event.inputs.downtime }}"
