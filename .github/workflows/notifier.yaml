@@ -1,24 +1,30 @@
-name: Build Deployment Notifier Package
-
 on:
   workflow_dispatch:
     inputs:
       app:
         description: "Application name (e.g., netwin, nossis, userportal)"
         required: true
+        type: string
+
       env:
-        description: "Environment (Production / Staging)"
+        description: "Environment (e.g., Production or Staging)"
         required: true
-        default: "Production"
+        type: string
+
       date:
-        description: "Deployment Date (YYYY-MM-DD)"
+        description: "Deployment Date (format: YYYY-MM-DD, e.g., 2025-08-27)"
         required: true
+        type: string
+
       time:
-        description: "Deployment Time (HH:MM)"
+        description: "Deployment Time (format: HH:MM in 24h, e.g., 17:00)"
         required: true
+        type: string
+
       downtime:
-        description: "Expected Downtime (e.g., 30 minutes)"
+        description: "Expected Downtime (e.g., 30 minutes, 1 hour)"
         required: true
+        type: string
 
 jobs:
   build:
@@ -42,6 +48,7 @@ jobs:
           xcopy deployment-notifier package\deployment-notifier /E /I /Y
 
       - name: Zip with inputs
+        shell: pwsh
         run: |
           $app="${{ github.event.inputs.app }}"
           $env="${{ github.event.inputs.env }}"
@@ -49,9 +56,14 @@ jobs:
           $time="${{ github.event.inputs.time }}"
           $downtime="${{ github.event.inputs.downtime }}"
 
+          # sanitize values for filename
+          $date = $date -replace ":", "-"
+          $time = $time -replace ":", "-"
+          $downtime = $downtime -replace " ", "_"
+
           $filename="deployment-notifier_${app}_${env}_${date}_${time}_${downtime}.zip"
           echo "Creating $filename"
-          powershell Compress-Archive -Path package\* -DestinationPath $filename
+          Compress-Archive -Path package\* -DestinationPath $filename
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
