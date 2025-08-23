@@ -45,6 +45,7 @@
   <script>
     let userEmails = [];
 
+    // Load emails from Excel based on selected app
     function loadEmailsForApp() {
       const app = document.getElementById('app').value;
       userEmails = [];
@@ -68,6 +69,21 @@
         });
     }
 
+    // Prefill values from query params if present
+    function getQueryParams() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has("app")) document.getElementById("app").value = params.get("app");
+      if (params.has("env")) document.getElementById("env").value = params.get("env");
+      if (params.has("date")) document.getElementById("date").value = params.get("date");
+      if (params.has("time")) document.getElementById("time").value = params.get("time");
+      if (params.has("downtime")) document.getElementById("downtime").value = params.get("downtime");
+
+      // Auto-load emails if app is preselected
+      if (params.has("app")) loadEmailsForApp();
+    }
+    window.onload = getQueryParams;
+
+    // Generate email draft
     function generateEmail() {
       const app = document.getElementById("app").value;
       const env = document.getElementById("env").value;
