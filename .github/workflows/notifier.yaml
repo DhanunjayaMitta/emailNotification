@@ -67,7 +67,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
 
-      - name: Create Deployment Summary
+      - name: Show Deployment Notifier URL
         run: |
           APP="${{ github.event.inputs.app }}"
           ENV="${{ github.event.inputs.env }}"
@@ -76,19 +76,29 @@ jobs:
           DOWNTIME="${{ github.event.inputs.downtime }}"
           RELEASE="${{ github.event.inputs.release }}"
 
+          # URL encode
+          urlencode() { python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$1"; }
+
+          APP_ENC=$(urlencode "$APP")
+          ENV_ENC=$(urlencode "$ENV")
+          DATE_ENC=$(urlencode "$DATE")
+          TIME_ENC=$(urlencode "$TIME")
+          DOWNTIME_ENC=$(urlencode "$DOWNTIME")
+          RELEASE_ENC=$(urlencode "$RELEASE")
+
           USERNAME=${GITHUB_REPOSITORY_OWNER}
           REPO=$(basename $GITHUB_REPOSITORY)
-          URL="https://${USERNAME}.github.io/${REPO}/?app=${APP}&env=${ENV}&date=${DATE}&time=${TIME}&downtime=${DOWNTIME}&release=${RELEASE}"
 
-          # Write deployment summary to GitHub Actions job summary
-          echo "## Deploy Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Deployment Notifier**" >> $GITHUB_STEP_SUMMARY
+          URL="https://${USERNAME}.github.io/${REPO}/?app=${APP_ENC}&env=${ENV_ENC}&date=${DATE_ENC}&time=${TIME_ENC}&downtime=${DOWNTIME_ENC}&release=${RELEASE_ENC}"
+
+          # Write deployment summary in workflow summary
+          echo "### Deploy Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Deployment Notifier" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "App: $APP" >> $GITHUB_STEP_SUMMARY
           echo "Environment: $ENV" >> $GITHUB_STEP_SUMMARY
           echo "Date: $DATE" >> $GITHUB_STEP_SUMMARY
-          echo "Time: $TIME" >> $GITHUB_STEP_SUMMARY
+          echo "Time: $TIME CEST" >> $GITHUB_STEP_SUMMARY
           echo "Downtime: $DOWNTIME" >> $GITHUB_STEP_SUMMARY
           echo "Release: $RELEASE" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -97,3 +107,5 @@ jobs:
           echo "Note: Excel files must exist at deployment-notifier/users/<App>.xlsx (e.g., users/$APP.xlsx)." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Job summary generated at run-time" >> $GITHUB_STEP_SUMMARY
+
+          echo "Deployment Notifier URL: $URL"
