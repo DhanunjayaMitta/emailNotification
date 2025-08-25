@@ -67,6 +67,24 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
 
+      - name: Wait for Pages to be live
+        run: |
+          USERNAME=${GITHUB_REPOSITORY_OWNER}
+          REPO=$(basename $GITHUB_REPOSITORY)
+          URL="https://${USERNAME}.github.io/${REPO}/index.html"
+
+          echo "Waiting for $URL ..."
+          for i in {1..20}; do
+            if curl -s -o /dev/null -w "%{http_code}" "$URL" | grep -q "200"; then
+              echo "GitHub Pages is live!"
+              exit 0
+            fi
+            echo "Still not ready... retry $i"
+            sleep 5
+          done
+          echo "Timeout: GitHub Pages did not go live in time."
+          exit 1
+
       - name: Show Deployment Notifier URL
         shell: bash
         run: |
@@ -92,3 +110,17 @@ jobs:
 
           echo "Deployment Notifier URL:"
           echo "$URL"
+
+          {
+            echo "## Deployment Notifier Link"
+            echo ""
+            echo "[Open Deployment Form]($URL)"
+            echo ""
+            echo "**Inputs used:**"
+            echo "- App: $APP"
+            echo "- Env: $ENV"
+            echo "- Date: $DATE"
+            echo "- Time: $TIME"
+            echo "- Downtime: $DOWNTIME"
+            echo "- Release: $RELEASE"
+          } >> $GITHUB_STEP_SUMMARY
