@@ -1,4 +1,4 @@
-name: Deployment Notifier
+name: Deploy Deployment Notifier
 
 on:
   workflow_dispatch:
@@ -49,37 +49,71 @@ on:
         default: "N/A"
 
 jobs:
-  deploy-notifier:
+  deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Generate Deployment Summary
+      - name: Prepare public folder
         run: |
-          echo "deploy summary" > summary.txt
-          echo "Deployment Notifier" >> summary.txt
-          echo "App: ${{ github.event.inputs.app }}" >> summary.txt
-          echo "Environment: ${{ github.event.inputs.env }}" >> summary.txt
-          echo "Date: ${{ github.event.inputs.date }}" >> summary.txt
-          echo "Time: ${{ github.event.inputs.time }}" >> summary.txt
-          echo "Downtime: ${{ github.event.inputs.downtime }}" >> summary.txt
-          echo "Release: ${{ github.event.inputs.release }}" >> summary.txt
-          echo "" >> summary.txt
-          echo "Open Pre-Filled Form" >> summary.txt
-          echo "" >> summary.txt
-          echo "Note: Excel files must exist at deployment-notifier/users/<App>.xlsx (e.g., users/${{ github.event.inputs.app }}.xlsx)." >> summary.txt
-          echo "" >> summary.txt
-          echo "Job summary generated at run-time" >> summary.txt
+          mkdir -p public
+          cp -r deployment-notifier/* public/
 
-      - name: Upload Deployment Summary Artifact
-        uses: actions/upload-artifact@v4
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          name: deployment-summary
-          path: summary.txt
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
 
-      - name: Output Pre-Filled Form Link
+      - name: Show Deployment Summary
         run: |
-          FORM_URL="https://<YOUR-GITHUB-PAGES-URL>/index.html?app=${{ github.event.inputs.app }}&env=${{ github.event.inputs.env }}&date=${{ github.event.inputs.date }}&time=${{ github.event.inputs.time }}&downtime=${{ github.event.inputs.downtime }}&release=${{ github.event.inputs.release }}"
-          echo "Pre-Filled Form Link: $FORM_URL"
-          echo "Pre-Filled Form Link: $FORM_URL" >> $GITHUB_STEP_SUMMARY
+          APP="${{ github.event.inputs.app }}"
+          ENV="${{ github.event.inputs.env }}"
+          DATE="${{ github.event.inputs.date }}"
+          TIME="${{ github.event.inputs.time }}"
+          DOWNTIME="${{ github.event.inputs.downtime }}"
+          RELEASE="${{ github.event.inputs.release }}"
+
+          echo "deploy summary"
+          echo "Deployment Notifier"
+          echo "App: $APP"
+          echo "Environment: $ENV"
+          echo "Date: $DATE"
+          echo "Time: $TIME"
+          echo "Downtime: $DOWNTIME"
+          echo "Release: $RELEASE"
+          echo ""
+          echo "Open Pre-Filled Form"
+          echo ""
+          echo "Note: Excel files must exist at deployment-notifier/users/<App>.xlsx (e.g., users/$APP.xlsx)."
+          echo ""
+          echo "Job summary generated at run-time"
+
+      - name: Show Deployment Notifier URL
+        run: |
+          APP="${{ github.event.inputs.app }}"
+          ENV="${{ github.event.inputs.env }}"
+          DATE="${{ github.event.inputs.date }}"
+          TIME="${{ github.event.inputs.time }}"
+          DOWNTIME="${{ github.event.inputs.downtime }}"
+          RELEASE="${{ github.event.inputs.release }}"
+
+          # URL encode
+          urlencode() { python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$1"; }
+
+          APP_ENC=$(urlencode "$APP")
+          ENV_ENC=$(urlencode "$ENV")
+          DATE_ENC=$(urlencode "$DATE")
+          TIME_ENC=$(urlencode "$TIME")
+          DOWNTIME_ENC=$(urlencode "$DOWNTIME")
+          RELEASE_ENC=$(urlencode "$RELEASE")
+
+          USERNAME=${GITHUB_REPOSITORY_OWNER}
+          REPO=$(basename $GITHUB_REPOSITORY)
+
+          URL="https://${USERNAME}.github.io/${REPO}/?app=${APP_ENC}&env=${ENV_ENC}&date=${DATE_ENC}&time=${TIME_ENC}&downtime=${DOWNTIME_ENC}&release=${RELEASE_ENC}"
+
+          echo "Deployment Notifier URL:"
+          echo "$URL"
