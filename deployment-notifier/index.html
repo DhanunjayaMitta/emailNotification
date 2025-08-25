@@ -100,7 +100,7 @@ async function loadEmails() {
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
     emailList = rows.map(row => row.Email || row.email || row.EMAIL)
                     .filter(e => e && validateEmail(e));
-    document.getElementById("emailCount").textContent = `📧 ${emailList.length} email(s) will be notified.`;
+    document.getElementById("emailCount").textContent = `${emailList.length} email(s) will be notified.`;
   } catch(err) {
     console.error(err);
     alert("Error loading email list.");
@@ -188,3 +188,4 @@ Best regards,`;
 
 </body>
 </html>
+
