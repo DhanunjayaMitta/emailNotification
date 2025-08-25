@@ -4,10 +4,25 @@ on:
   workflow_dispatch:
     inputs:
       app:
-        description: "Application name (e.g., Netwin)"
+        description: "Select the Application"
         required: true
-        type: string
-        default: "Netwin"
+        type: choice
+        options:
+          - Alarm Manager
+          - Altaia
+          - Altice Agora
+          - Analytics
+          - FF1
+          - FFWK
+          - IAM
+          - NOSSIS Common
+          - NetQ
+          - Netwin
+          - Nokia AMS
+          - SIGO WO
+          - SIGO TTK
+          - SIGO WOv15
+        default: Netwin
       env:
         description: "Environment (Production, Test, Pre-Production)"
         required: true
@@ -43,24 +58,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Prepare public folder
       - name: Prepare public folder
         run: |
           mkdir -p public
           cp -r deployment-notifier/* public/
 
-      # 3️⃣ Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
 
-      # 4️⃣ Show clickable URL with prefilled inputs
       - name: Show Deployment Notifier URL
         shell: bash
         run: |
