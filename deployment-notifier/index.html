@@ -54,9 +54,7 @@
 <script>
 let emailList = [];
 
-// =====================
 // Populate dropdowns
-// =====================
 const apps = ["Alarm Manager","Altaia","Altice Agora","Analytics","FF1","FFWK","IAM","NOSSIS Common","NetQ","Netwin","Nokia AMS","SIGO WO","SIGO TTK","SIGO WOv15"];
 const envs = ["Production","Test","Pre-Production"];
 const downtimes = ["5 minutes","10 minutes","15 minutes","30 minutes","45 minutes","1 hour","2 hours","Other"];
@@ -70,14 +68,10 @@ envs.forEach(e => { const opt = document.createElement("option"); opt.value = e;
 const downtimeSelect = document.getElementById("downtime");
 downtimes.forEach(d => { const opt = document.createElement("option"); opt.value = d; opt.textContent = d; downtimeSelect.appendChild(opt); });
 
-// =====================
-// Email validation
-// =====================
+// Validate email
 function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
 
-// =====================
 // Load emails from Excel
-// =====================
 async function loadEmails(callback) {
   const app = document.getElementById("app").value.trim();
   emailList = [];
@@ -87,23 +81,27 @@ async function loadEmails(callback) {
   try {
     const fileName = `users/${app.toLowerCase()}.xlsx`;
     const response = await fetch(fileName);
-    if (!response.ok) { alert(`No email list found for "${app}". Expected: ${fileName}`); if(callback) callback(); return; }
+    if (!response.ok) { 
+      alert(`No email list found for "${app}". Expected: ${fileName}`); 
+      if(callback) callback(); 
+      return; 
+    }
 
     const data = await response.arrayBuffer();
     const workbook = XLSX.read(data, { type: "array" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-
     emailList = rows.map(row => row.Email || row.email || row.EMAIL).filter(e => e && validateEmail(e));
     document.getElementById("emailCount").textContent = `${emailList.length} email(s) will be notified.`;
-
     if(callback) callback();
-  } catch(err) { console.error(err); alert("Error loading email list."); if(callback) callback(); }
+  } catch(err) { 
+    console.error(err); 
+    alert("Error loading email list."); 
+    if(callback) callback(); 
+  }
 }
 
-// =====================
 // Downtime toggle
-// =====================
 function toggleCustomDowntime() {
   const downtime = downtimeSelect.value;
   const custom = document.getElementById("customDowntime");
@@ -111,26 +109,17 @@ function toggleCustomDowntime() {
   else { custom.disabled=true; custom.value=""; custom.classList.add("disabled"); }
 }
 
-// =====================
-// Utility
-// =====================
+// Utilities
 function toTitleCase(str) { return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase()+txt.slice(1).toLowerCase()); }
-
-// Downtime parser: works with "30min", "30 min", "30minutes", "30 m", "30minutes", "1 hour", etc.
 function parseDowntime(downtime) {
-  if(!downtime) return 0;
-  const cleaned = downtime.toLowerCase().replace(/\s+/g,"");
-  const hourMatch = cleaned.match(/^(\d+(\.\d+)?)(h|hour|hours)$/);
-  if(hourMatch) return parseFloat(hourMatch[1])*60;
-  const minMatch = cleaned.match(/^(\d+(\.\d+)?)(m|min|minute|minutes)?$/);
-  if(minMatch) return parseFloat(minMatch[1]);
-  const num = parseFloat(cleaned);
-  return isNaN(num)?0:num;
+  const cleaned = downtime.toLowerCase().trim().replace(/\s+/g,'');
+  if (!cleaned) return 0;
+  if (cleaned.includes('hour') || cleaned.includes('h')) return parseFloat(cleaned) * 60;
+  if (cleaned.includes('minute') || cleaned.includes('min') || cleaned.endsWith('m')) return parseFloat(cleaned);
+  return parseFloat(cleaned) || 0;
 }
 
-// =====================
 // Generate email preview
-// =====================
 function generateEmail() {
   const appRaw = document.getElementById("app").value.trim();
   const capitalizedApp = toTitleCase(appRaw);
@@ -153,10 +142,10 @@ function generateEmail() {
 
   const selectedDateTime = new Date(`${date}T${time}`);
   const downtimeMinutes = parseDowntime(downtime);
-  const availableDateTime = new Date(selectedDateTime.getTime() + downtimeMinutes*60000);
+  const availableDateTime = new Date(selectedDateTime.getTime() + downtimeMinutes * 60000);
 
-  const formattedStart = selectedDateTime.toLocaleTimeString("en-GB",{hour:'2-digit',minute:'2-digit',hour12:false})+" CEST";
-  const formattedEnd = availableDateTime.toLocaleTimeString("en-GB",{hour:'2-digit',minute:'2-digit',hour12:false})+" CEST";
+  const formattedStart = selectedDateTime.toLocaleTimeString("en-GB",{hour:'2-digit',minute:'2-digit',hour12:false}) + " CEST";
+  const formattedEnd = availableDateTime.toLocaleTimeString("en-GB",{hour:'2-digit',minute:'2-digit',hour12:false}) + " CEST";
   const formattedDate = selectedDateTime.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
 
   const subject = `[REMINDER] Software Installation on ${formattedDate} – ${env}`;
@@ -196,9 +185,7 @@ OSS DevOps Team.`;
 <button onclick="window.location.href='${mailto}'">Open in Outlook</button>`;
 }
 
-// =====================
 // Auto-prefill from URL
-// =====================
 (function() {
   const params = new URLSearchParams(window.location.search);
 
