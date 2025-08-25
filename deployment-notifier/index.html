@@ -1,129 +1,190 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Deployment Notifier</title>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <style>
-    body { font-family: Arial; padding: 20px; max-width: 600px; margin: auto; }
-    label, select, input { display: block; margin: 10px 0; width: 100%; padding: 8px; }
-    button { padding: 10px 15px; margin-top: 15px; }
-    #output { white-space: pre-wrap; margin-top: 20px; background: #f0f0f0; padding: 10px; }
-  </style>
+<meta charset="UTF-8">
+<title>Deployment Notification Generator</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; max-width: 750px; margin: auto; }
+  label, select, input { display: block; margin: 10px 0; width: 100%; padding: 8px; }
+  button { padding: 10px 15px; margin-top: 15px; cursor: pointer; }
+  #output { white-space: pre-wrap; background: #f4f4f4; padding: 15px; margin-top: 20px; border: 1px solid #ccc; }
+  .inline-group { display: flex; gap: 10px; }
+  .inline-group select, .inline-group input { flex: 1; }
+  input::placeholder { color: #999; }
+  .disabled { background: #eee; }
+</style>
 </head>
 <body>
 
-  <h2>Deployment Notification Generator</h2>
+<h2>Deployment Notification Generator</h2>
 
-  <label for="app">Application:</label>
-  <select id="app" onchange="loadEmailsForApp()">
-    <option value="">-- Select Application --</option>
-    <option value="netwin">Netwin</option>
-    <option value="nossis">NOSSIS</option>
-    <option value="userportal">UserPortal</option>
+<label for="app">Affected System/Application:</label>
+<select id="app" onchange="loadEmails()">
+  <option value="">-- Select Application --</option>
+  <option value="Alarm Manager">Alarm Manager</option>
+  <option value="Altaia">Altaia</option>
+  <option value="Altice Agora">Altice Agora</option>
+  <option value="Analytics">Analytics</option>
+  <option value="FF1">FF1</option>
+  <option value="FFWK">FFWK</option>
+  <option value="IAM">IAM</option>
+  <option value="NOSSIS Common">NOSSIS Common</option>
+  <option value="NetQ">NetQ</option>
+  <option value="Netwin">Netwin</option>
+  <option value="Nokia AMS">Nokia AMS</option>
+  <option value="SIGO WO">SIGO WO</option>
+  <option value="SIGO TTK">SIGO TTK</option>
+  <option value="SIGO WOv15">SIGO WOv15</option>
+</select>
+<p id="emailCount"></p>
+
+<label for="env">Environment:</label>
+<select id="env">
+  <option value="">-- Select Environment --</option>
+  <option value="Production">Production</option>
+  <option value="Test">Test</option>
+  <option value="Pre-Production">Pre-Production</option>
+</select>
+
+<label for="date">Deployment Date:</label>
+<input type="date" id="date">
+
+<label for="time">Deployment Time:</label>
+<input type="time" id="time">
+
+<label for="downtime">Expected Downtime Duration:</label>
+<div class="inline-group">
+  <select id="downtime" onchange="toggleCustomDowntime()">
+    <option value="">-- Select Duration --</option>
+    <option value="5 minutes">5 minutes</option>
+    <option value="10 minutes">10 minutes</option>
+    <option value="15 minutes">15 minutes</option>
+    <option value="30 minutes">30 minutes</option>
+    <option value="45 minutes">45 minutes</option>
+    <option value="1 hour">1 hour</option>
+    <option value="2 hours">2 hours</option>
+    <option value="Other">Other</option>
   </select>
+  <input type="text" id="customDowntime" placeholder="Enter downtime" disabled class="disabled">
+</div>
 
-  <label for="env">Environment:</label>
-  <select id="env">
-    <option value="Production">Production</option>
-    <option value="Staging">Staging</option>
-  </select>
+<label for="release">Vendor Release Notes / Version:</label>
+<input type="text" id="release" placeholder="Anything can be entered here">
 
-  <label for="date">Deployment Date:</label>
-  <input type="date" id="date">
+<button onclick="generateEmail()">Generate Email</button>
 
-  <label for="time">Deployment Time:</label>
-  <input type="time" id="time">
+<div id="output"></div>
 
-  <label for="downtime">Expected Downtime:</label>
-  <input type="text" id="downtime" placeholder="e.g., 30 minutes">
+<script>
+let emailList = [];
 
-  <button onclick="generateEmail()">Generate Email</button>
+function validateEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
 
-  <div id="output"></div>
+async function loadEmails() {
+  const app = document.getElementById("app").value.trim();
+  emailList = [];
+  document.getElementById("emailCount").textContent = "";
+  if (!app) return;
 
-  <script>
-    let userEmails = [];
+  try {
+    const fileName = `users/${app}.xlsx`;
+    const response = await fetch(fileName);
+    if (!response.ok) { alert(`No email list found for ${app}`); return; }
 
-    // Load emails from Excel based on selected app
-    function loadEmailsForApp() {
-      const app = document.getElementById('app').value;
-      userEmails = [];
+    const data = await response.arrayBuffer();
+    const workbook = XLSX.read(data, { type: "array" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    emailList = rows.map(row => row.Email || row.email || row.EMAIL)
+                    .filter(e => e && validateEmail(e));
+    document.getElementById("emailCount").textContent = `📧 ${emailList.length} email(s) will be notified.`;
+  } catch(err) {
+    console.error(err);
+    alert("Error loading email list.");
+  }
+}
 
-      if (!app) return;
+function toggleCustomDowntime() {
+  const downtime = document.getElementById("downtime").value;
+  const custom = document.getElementById("customDowntime");
+  if (downtime === "Other") { custom.disabled = false; custom.classList.remove("disabled"); }
+  else { custom.disabled = true; custom.value = ""; custom.classList.add("disabled"); }
+}
 
-      fetch(`users/${app}.xlsx`)
-        .then(response => response.arrayBuffer())
-        .then(data => {
-          const workbook = XLSX.read(data, { type: 'array' });
-          const sheet = workbook.Sheets[workbook.SheetNames[0]];
-          const json = XLSX.utils.sheet_to_json(sheet);
+function toTitleCase(str) {
+  return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase());
+}
 
-          userEmails = json.map(row => row.Email).filter(email => email);
+// Convert downtime string to minutes
+function parseDowntime(downtime) {
+  const lower = downtime.toLowerCase();
+  if (lower.includes("hour")) return parseFloat(lower) * 60;
+  if (lower.includes("minute")) return parseFloat(lower);
+  return 0;
+}
 
-          alert(`Loaded ${userEmails.length} email(s) for ${app}`);
-        })
-        .catch(error => {
-          console.error("Error loading Excel:", error);
-          alert("Failed to load email list for app: " + app);
-        });
-    }
+async function generateEmail() {
+  const appRaw = document.getElementById("app").value.trim();
+  const capitalizedApp = toTitleCase(appRaw);
+  const env = document.getElementById("env").value.trim();
+  const date = document.getElementById("date").value;
+  const time = document.getElementById("time").value;
+  const downtime = document.getElementById("downtime").value === "Other"
+    ? document.getElementById("customDowntime").value.trim()
+    : document.getElementById("downtime").value.trim();
+  const release = document.getElementById("release").value.trim() || "N/A";
 
-    // Prefill values from query params if present
-    function getQueryParams() {
-      const params = new URLSearchParams(window.location.search);
-      if (params.has("app")) document.getElementById("app").value = params.get("app");
-      if (params.has("env")) document.getElementById("env").value = params.get("env");
-      if (params.has("date")) document.getElementById("date").value = params.get("date");
-      if (params.has("time")) document.getElementById("time").value = params.get("time");
-      if (params.has("downtime")) document.getElementById("downtime").value = params.get("downtime");
+  if (!capitalizedApp || !env || !date || !time || !downtime) { alert("Please fill all required fields."); return; }
+  if (emailList.length === 0) { alert("Email list is empty. Make sure the Excel file exists for this app."); return; }
 
-      // Auto-load emails if app is preselected
-      if (params.has("app")) loadEmailsForApp();
-    }
-    window.onload = getQueryParams;
+  const selectedDateTime = new Date(`${date}T${time}`);
+  const now = new Date();
+  if (env === "Production" && selectedDateTime < now) {
+    alert("Production deployment must be present or future."); return;
+  }
+  if ((env === "Test" || env === "Pre-Production") && selectedDateTime < new Date(now.getTime() - 5*60*1000)) {
+    alert("Test/Pre-Production deployments cannot be too far in the past."); return;
+  }
 
-    // Generate email draft
-    function generateEmail() {
-      const app = document.getElementById("app").value;
-      const env = document.getElementById("env").value;
-      const date = document.getElementById("date").value;
-      const time = document.getElementById("time").value;
-      const downtime = document.getElementById("downtime").value;
+  const downtimeMinutes = parseDowntime(downtime);
+  const availableDateTime = new Date(selectedDateTime.getTime() + downtimeMinutes * 60000);
+  const formattedAvailableTime = availableDateTime.toLocaleTimeString("en-US", { hour:'numeric', minute:'2-digit', hour12:true }) + " CEST";
 
-      if (!app || !env || !date || !time || !downtime || userEmails.length === 0) {
-        alert("Please fill all fields and make sure email list is loaded.");
-        return;
-      }
+  const formattedDate = selectedDateTime.toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
+  const formattedTime = selectedDateTime.toLocaleTimeString("en-US", { hour:'numeric', minute:'2-digit', hour12:true }) + " CEST";
 
-      const subject = `[${app}] Scheduled Deployment Notification`;
-      const body = `
-Hi Team,
+  const subject = `[REMINDER] Software Installation on ${formattedDate} – ${env}`;
 
-Please be informed of a scheduled deployment for the application ${app} in the ${env} environment.
+  const bodyText =
+`Dear Sir or Madam,
 
- Deployment Date: ${date}  
- Deployment Time: ${time}  
- Expected Downtime: ${downtime}
+We would like to inform you about an upcoming software installation as part of our regular maintenance and development measures.
 
-During this time, access to the application may be limited.
+Affected Systems/Applications:  ${capitalizedApp}
+Environment:                   ${env}
+Scheduled Installation:        ${formattedDate} at ${formattedTime}
+Expected Downtime:             ${downtime}
+Vendor Release Notes:           ${release}
 
-Thank you for your understanding.  
-OXG DevOps Team
-`.trim();
+Please note that you will only be able to use ${capitalizedApp} from ${formattedAvailableTime} on that day.
 
-      const bcc = userEmails.join(';');
+We will, of course, make every effort to minimize any potential disruptions.
 
-      const mailto = `mailto:?subject=${encodeURIComponent(subject)}&bcc=${encodeURIComponent(bcc)}&body=${encodeURIComponent(body)}`;
+Thank you for your understanding.
+Best regards,`;
 
-      document.getElementById("output").innerHTML = `
-<b>BCC:</b><br>${bcc}<br><br>
+  const mailto = `mailto:?bcc=${encodeURIComponent(emailList.join(","))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
+
+  document.getElementById("output").innerHTML = `
 <b>Subject:</b> ${subject}<br><br>
-<b>Body:</b><br><pre>${body}</pre><br>
-<button onclick="window.location.href='${mailto}'">📧 Open in Outlook</button>
-      `;
-    }
-  </script>
+<b>Email Preview:</b><br><pre>${bodyText}</pre><br>
+<b>Recipients:</b> ${emailList.length} (in BCC)<br><br>
+<button onclick="window.location.href='${mailto}'">Open in Outlook</button>`;
+}
+</script>
 
 </body>
 </html>
