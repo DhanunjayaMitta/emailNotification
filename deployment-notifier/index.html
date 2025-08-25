@@ -73,6 +73,7 @@
 <input type="text" id="release" placeholder="Anything can be entered here">
 
 <button onclick="generateEmail()">Generate Email</button>
+<button onclick="previewEmail()">Preview</button>
 
 <div id="output"></div>
 
@@ -118,7 +119,7 @@ function toTitleCase(str) {
   return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase());
 }
 
-// Convert downtime string to minutes
+// Parse downtime to minutes
 function parseDowntime(downtime) {
   const lower = downtime.toLowerCase();
   if (lower.includes("hour")) return parseFloat(lower) * 60;
@@ -126,7 +127,46 @@ function parseDowntime(downtime) {
   return 0;
 }
 
-async function generateEmail() {
+// Prefill fields from URL query
+function getQueryParams() {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    app: params.get('app') || '',
+    env: params.get('env') || '',
+    date: params.get('date') || '',
+    time: params.get('time') || '',
+    downtime: params.get('downtime') || ''
+  };
+}
+
+function prefillFields() {
+  const { app, env, date, time, downtime } = getQueryParams();
+
+  if (app) { document.getElementById('app').value = app; loadEmails(); }
+  if (env) document.getElementById('env').value = env;
+  if (date) document.getElementById('date').value = date;
+  if (time) document.getElementById('time').value = time;
+  if (downtime) {
+    const selectDowntime = document.getElementById('downtime');
+    const customDowntime = document.getElementById('customDowntime');
+    if ([...selectDowntime.options].some(opt => opt.value === downtime)) {
+      selectDowntime.value = downtime;
+      toggleCustomDowntime();
+    } else {
+      selectDowntime.value = 'Other';
+      toggleCustomDowntime();
+      customDowntime.value = downtime;
+    }
+  }
+}
+
+window.onload = prefillFields;
+
+function previewEmail() {
+  generateEmail(true);
+}
+
+async function generateEmail(preview=false) {
   const appRaw = document.getElementById("app").value.trim();
   const capitalizedApp = toTitleCase(appRaw);
   const env = document.getElementById("env").value.trim();
@@ -142,12 +182,8 @@ async function generateEmail() {
 
   const selectedDateTime = new Date(`${date}T${time}`);
   const now = new Date();
-  if (env === "Production" && selectedDateTime < now) {
-    alert("Production deployment must be present or future."); return;
-  }
-  if ((env === "Test" || env === "Pre-Production") && selectedDateTime < new Date(now.getTime() - 5*60*1000)) {
-    alert("Test/Pre-Production deployments cannot be too far in the past."); return;
-  }
+  if (env === "Production" && selectedDateTime < now) { alert("Production deployment must be present or future."); return; }
+  if ((env === "Test" || env === "Pre-Production") && selectedDateTime < new Date(now.getTime() - 5*60*1000)) { alert("Test/Pre-Production deployments cannot be too far in the past."); return; }
 
   const downtimeMinutes = parseDowntime(downtime);
   const availableDateTime = new Date(selectedDateTime.getTime() + downtimeMinutes * 60000);
@@ -176,16 +212,15 @@ We will, of course, make every effort to minimize any potential disruptions.
 Thank you for your understanding.
 Best regards,`;
 
-  const mailto = `mailto:?bcc=${encodeURIComponent(emailList.join(","))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
+  if (preview) {
+    document.getElementById("output").innerHTML = `<b>Subject:</b> ${subject}<br><br><b>Email Preview:</b><br><pre>${bodyText}</pre><br><b>Recipients:</b> ${emailList.length} (in BCC)`;
+    return;
+  }
 
-  document.getElementById("output").innerHTML = `
-<b>Subject:</b> ${subject}<br><br>
-<b>Email Preview:</b><br><pre>${bodyText}</pre><br>
-<b>Recipients:</b> ${emailList.length} (in BCC)<br><br>
-<button onclick="window.location.href='${mailto}'">Open in Outlook</button>`;
+  const mailto = `mailto:?bcc=${encodeURIComponent(emailList.join(","))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
+  window.location.href = mailto;
 }
 </script>
 
 </body>
 </html>
-
