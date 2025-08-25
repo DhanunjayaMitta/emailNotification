@@ -4,49 +4,27 @@ on:
   workflow_dispatch:
     inputs:
       app:
-        description: "Application name"
+        description: "Application name (e.g., Netwin)"
         required: true
-        type: choice
-        options:
-          - Alarm Manager
-          - Altaia
-          - Altice Agora
-          - Analytics
-          - FF1
-          - FFWK
-          - IAM
-          - NOSSIS Common
-          - NetQ
-          - Netwin
-          - Nokia AMS
-          - SIGO WO
-          - SIGO TTK
-          - SIGO WOv15
+        type: string
       env:
-        description: "Environment"
+        description: "Environment (e.g., Production)"
         required: true
-        type: choice
-        options:
-          - Production
-          - Test
-          - Pre-Production
+        type: string
       date:
-        description: "Deployment date"
+        description: "Deployment Date (YYYY-MM-DD)"
         required: true
         type: string
-        default: ${{ github.event.workflow_run.updated_at }}
       time:
-        description: "Deployment time"
+        description: "Deployment Time (HH:MM, e.g., 17:00)"
         required: true
         type: string
-        default: "17:00"
       downtime:
-        description: "Expected downtime"
+        description: "Expected Downtime (e.g., 30 minutes)"
         required: true
         type: string
-        default: "30 minutes"
       release:
-        description: "Vendor release notes / version"
+        description: "Vendor Release Notes / Version"
         required: false
         type: string
         default: "N/A"
@@ -80,18 +58,18 @@ jobs:
           DOWNTIME="${{ github.event.inputs.downtime }}"
           RELEASE="${{ github.event.inputs.release }}"
 
-          # Encode spaces
-          APP_ENCODED=$(echo "$APP" | sed 's/ /%20/g')
-          ENV_ENCODED=$(echo "$ENV" | sed 's/ /%20/g')
-          DATE_ENCODED="$DATE"
-          TIME_ENCODED="$TIME"
-          DOWNTIME_ENCODED=$(echo "$DOWNTIME" | sed 's/ /%20/g')
-          RELEASE_ENCODED=$(echo "$RELEASE" | sed 's/ /%20/g')
+          # URL encode
+          APP_ENC=$(echo "$APP" | sed 's/ /%20/g')
+          ENV_ENC=$(echo "$ENV" | sed 's/ /%20/g')
+          DATE_ENC="$DATE"
+          TIME_ENC="$TIME"
+          DOWNTIME_ENC=$(echo "$DOWNTIME" | sed 's/ /%20/g')
+          RELEASE_ENC=$(echo "$RELEASE" | sed 's/ /%20/g')
 
           USERNAME=${GITHUB_REPOSITORY_OWNER}
           REPO=$(basename $GITHUB_REPOSITORY)
 
-          URL="https://${USERNAME}.github.io/${REPO}/?app=${APP_ENCODED}&env=${ENV_ENCODED}&date=${DATE_ENCODED}&time=${TIME_ENCODED}&downtime=${DOWNTIME_ENCODED}&release=${RELEASE_ENCODED}"
+          URL="https://${USERNAME}.github.io/${REPO}/?app=${APP_ENC}&env=${ENV_ENC}&date=${DATE_ENC}&time=${TIME_ENC}&downtime=${DOWNTIME_ENC}&release=${RELEASE_ENC}"
 
-          echo "Deployment Notifier URL:"
+          echo "✅ Deployment Notifier URL:"
           echo "$URL"
