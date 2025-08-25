@@ -4,25 +4,39 @@ on:
   workflow_dispatch:
     inputs:
       app:
-        description: "Application name (e.g., netwin)"
+        description: "Application name (e.g., Netwin)"
         required: true
         type: string
+        default: "Netwin"
       env:
-        description: "Environment (e.g., Production)"
+        description: "Environment (Production, Test, Pre-Production)"
         required: true
-        type: string
+        type: choice
+        options:
+          - Production
+          - Test
+          - Pre-Production
+        default: Production
       date:
-        description: "Deployment Date (YYYY-MM-DD, e.g., 2025-08-27)"
+        description: "Deployment Date (YYYY-MM-DD, leave 'TODAY' for current date)"
         required: true
         type: string
+        default: "TODAY"
       time:
-        description: "Deployment Time (HH:MM, e.g., 17:00)"
+        description: "Deployment Time (HH:MM, 24-hour format)"
         required: true
         type: string
+        default: "17:00"
       downtime:
         description: "Expected Downtime (e.g., 30 minutes)"
         required: true
         type: string
+        default: "30 minutes"
+      release:
+        description: "Vendor Release Notes / Version"
+        required: false
+        type: string
+        default: "N/A"
 
 jobs:
   deploy:
@@ -36,7 +50,7 @@ jobs:
       # 2️⃣ Prepare public folder
       - name: Prepare public folder
         run: |
-          mkdir public
+          mkdir -p public
           cp -r deployment-notifier/* public/
 
       # 3️⃣ Deploy to GitHub Pages
@@ -46,7 +60,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
 
-      # 4️⃣ Print clickable URL with prefilled inputs
+      # 4️⃣ Show clickable URL with prefilled inputs
       - name: Show Deployment Notifier URL
         shell: bash
         run: |
@@ -55,15 +69,22 @@ jobs:
           DATE="${{ github.event.inputs.date }}"
           TIME="${{ github.event.inputs.time }}"
           DOWNTIME="${{ github.event.inputs.downtime }}"
+          RELEASE="${{ github.event.inputs.release }}"
 
-          # URL-encode spaces for downtime
+          # Replace placeholder with current date if needed
+          if [ "$DATE" = "TODAY" ]; then
+            DATE=$(date +%Y-%m-%d)
+          fi
+
+          # URL-encode spaces
           DOWNTIME_ENCODED=$(echo "$DOWNTIME" | sed 's/ /%20/g')
+          RELEASE_ENCODED=$(echo "$RELEASE" | sed 's/ /%20/g')
 
-          # Dynamically get username and repo
+          # Get username and repo dynamically
           USERNAME=${GITHUB_REPOSITORY_OWNER}
           REPO=$(basename $GITHUB_REPOSITORY)
 
-          URL="https://${USERNAME}.github.io/${REPO}/?app=${APP}&env=${ENV}&date=${DATE}&time=${TIME}&downtime=${DOWNTIME_ENCODED}"
+          URL="https://${USERNAME}.github.io/${REPO}/?app=${APP}&env=${ENV}&date=${DATE}&time=${TIME}&downtime=${DOWNTIME_ENCODED}&release=${RELEASE_ENCODED}"
 
-          echo "✅ Deployment Notifier is ready! Open this URL in your browser:"
+          echo "Deployment Notifier is ready! Open this URL in your browser:"
           echo "$URL"
