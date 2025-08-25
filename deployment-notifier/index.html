@@ -72,18 +72,16 @@
 <label for="release">Vendor Release Notes / Version:</label>
 <input type="text" id="release" placeholder="Anything can be entered here">
 
-<button onclick="generateEmail()">Open in Outlook</button>
-<button onclick="previewEmail()">Preview</button>
+<button onclick="previewEmail()">Preview Email</button>
 
 <div id="output"></div>
 
 <script>
 let emailList = [];
 
-function validateEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
+function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
 
+// Load emails from Excel based on selected app
 async function loadEmails() {
   const app = document.getElementById("app").value.trim();
   emailList = [];
@@ -101,121 +99,110 @@ async function loadEmails() {
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
     emailList = rows.map(row => row.Email || row.email || row.EMAIL)
                     .filter(e => e && validateEmail(e));
-    document.getElementById("emailCount").textContent = `📧 ${emailList.length} email(s) will be notified.`;
-  } catch(err) {
-    console.error(err);
-    alert("Error loading email list.");
-  }
+    document.getElementById("emailCount").textContent = `${emailList.length} email(s) will be notified.`;
+  } catch(err) { console.error(err); alert("Error loading email list."); }
 }
 
 function toggleCustomDowntime() {
   const downtime = document.getElementById("downtime").value;
   const custom = document.getElementById("customDowntime");
-  if (downtime === "Other") { custom.disabled = false; custom.classList.remove("disabled"); }
-  else { custom.disabled = true; custom.value = ""; custom.classList.add("disabled"); }
+  if (downtime === "Other") { custom.disabled=false; custom.classList.remove("disabled"); }
+  else { custom.disabled=true; custom.value=""; custom.classList.add("disabled"); }
 }
 
-function toTitleCase(str) {
-  return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase());
-}
+function toTitleCase(str) { return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase()); }
 
 function parseDowntime(downtime) {
   const lower = downtime.toLowerCase();
-  if (lower.includes("hour")) return parseFloat(lower) * 60;
+  if (lower.includes("hour")) return parseFloat(lower)*60;
   if (lower.includes("minute")) return parseFloat(lower);
   return 0;
 }
 
+// Prefill from URL query parameters
 function getQueryParams() {
-  const params = new URLSearchParams(window.location.search);
-  return {
-    app: params.get('app') || '',
-    env: params.get('env') || '',
-    date: params.get('date') || '',
-    time: params.get('time') || '',
-    downtime: params.get('downtime') || '',
-    release: params.get('release') || ''
-  };
+  const params={};
+  const qs = window.location.search.substring(1);
+  qs.split("&").forEach(pair => {
+    const [k,v] = pair.split("=");
+    if(k) params[k] = decodeURIComponent(v.replace(/\+/g," "));
+  });
+  return params;
 }
-
 function prefillFields() {
-  const { app, env, date, time, downtime, release } = getQueryParams();
-  if (app) { document.getElementById('app').value = app; loadEmails(); }
-  if (env) document.getElementById('env').value = env;
-  if (date) document.getElementById('date').value = date;
-  if (time) document.getElementById('time').value = time;
-  if (downtime) {
-    const selectDowntime = document.getElementById('downtime');
-    const customDowntime = document.getElementById('customDowntime');
-    if ([...selectDowntime.options].some(opt => opt.value === downtime)) {
-      selectDowntime.value = downtime;
-      toggleCustomDowntime();
+  const p = getQueryParams();
+  if(p.app) document.getElementById("app").value = p.app;
+  if(p.env) document.getElementById("env").value = p.env;
+  if(p.date) document.getElementById("date").value = p.date;
+  if(p.time) document.getElementById("time").value = p.time;
+  if(p.downtime) {
+    const downtimeSelect = document.getElementById("downtime");
+    const customInput = document.getElementById("customDowntime");
+    if(["5 minutes","10 minutes","15 minutes","30 minutes","45 minutes","1 hour","2 hours"].includes(p.downtime)){
+      downtimeSelect.value = p.downtime; customInput.value=""; customInput.disabled=true; customInput.classList.add("disabled");
     } else {
-      selectDowntime.value = 'Other';
-      toggleCustomDowntime();
-      customDowntime.value = downtime;
+      downtimeSelect.value = "Other"; customInput.value=p.downtime; customInput.disabled=false; customInput.classList.remove("disabled");
     }
   }
-  if (release) document.getElementById('release').value = release;
+  if(p.release) document.getElementById("release").value = p.release;
 }
 
-window.onload = prefillFields;
+window.addEventListener("DOMContentLoaded", prefillFields);
 
-function previewEmail() { generateEmail(true); }
+// Preview and generate mailto
+function previewEmail() {
+  const appRaw=document.getElementById("app").value.trim();
+  const capitalizedApp=toTitleCase(appRaw);
+  const env=document.getElementById("env").value.trim();
+  const date=document.getElementById("date").value;
+  const time=document.getElementById("time").value;
+  const downtime=document.getElementById("downtime").value==="Other"
+      ? document.getElementById("customDowntime").value.trim()
+      : document.getElementById("downtime").value.trim();
+  const release=document.getElementById("release").value.trim()||"N/A";
 
-async function generateEmail(preview=false) {
-  const appRaw = document.getElementById("app").value.trim();
-  const capitalizedApp = toTitleCase(appRaw);
-  const env = document.getElementById("env").value.trim();
-  const date = document.getElementById("date").value;
-  const time = document.getElementById("time").value;
-  const downtime = document.getElementById("downtime").value === "Other"
-    ? document.getElementById("customDowntime").value.trim()
-    : document.getElementById("downtime").value.trim();
-  const release = document.getElementById("release").value.trim() || "N/A";
+  if(!capitalizedApp||!env||!date||!time||!downtime) { alert("Please fill all required fields."); return; }
+  if(emailList.length===0) { alert("Email list empty."); return; }
 
-  if (!capitalizedApp || !env || !date || !time || !downtime) { alert("Please fill all required fields."); return; }
-  if (emailList.length === 0) { alert("Email list is empty. Make sure the Excel file exists for this app."); return; }
+  const selectedDT=new Date(`${date}T${time}`); const now=new Date();
+  if(env==="Production" && selectedDT<now){ alert("Production deployment must be present or future."); return; }
+  if((env==="Test"||env==="Pre-Production") && selectedDT<new Date(now.getTime()-5*60*1000)){
+    alert("Test/Pre-Production deployment too far in past."); return;
+  }
 
-  const selectedDateTime = new Date(`${date}T${time}`);
-  const now = new Date();
-  if (env === "Production" && selectedDateTime < now) { alert("Production deployment must be present or future."); return; }
-  if ((env === "Test" || env === "Pre-Production") && selectedDateTime < new Date(now.getTime() - 5*60*1000)) { alert("Test/Pre-Production deployments cannot be too far in the past."); return; }
+  const dtMin=parseDowntime(downtime);
+  const availableDT=new Date(selectedDT.getTime()+dtMin*60000);
+  const fDate=selectedDT.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const fTime=selectedDT.toLocaleTimeString("en-US",{hour:'numeric',minute:'2-digit',hour12:true})+" CEST";
+  const fAvailableTime=availableDT.toLocaleTimeString("en-US",{hour:'numeric',minute:'2-digit',hour12:true})+" CEST";
 
-  const downtimeMinutes = parseDowntime(downtime);
-  const availableDateTime = new Date(selectedDateTime.getTime() + downtimeMinutes * 60000);
-  const formattedAvailableTime = availableDateTime.toLocaleTimeString("en-US", { hour:'numeric', minute:'2-digit', hour12:true }) + " CEST";
+  const subject=`[REMINDER] Software Installation on ${fDate} – ${env}`;
 
-  const formattedDate = selectedDateTime.toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
-  const formattedTime = selectedDateTime.toLocaleTimeString("en-US", { hour:'numeric', minute:'2-digit', hour12:true }) + " CEST";
-
-  const subject = `[REMINDER] Software Installation on ${formattedDate} – ${env}`;
-
-  const bodyText =
+  const bodyText=
 `Dear Sir or Madam,
 
 We would like to inform you about an upcoming software installation as part of our regular maintenance and development measures.
 
 Affected Systems/Applications:  ${capitalizedApp}
 Environment:                   ${env}
-Scheduled Installation:        ${formattedDate} at ${formattedTime}
+Scheduled Installation:        ${fDate} at ${fTime}
 Expected Downtime:             ${downtime}
 Vendor Release Notes:           ${release}
 
-Please note that you will only be able to use ${capitalizedApp} from ${formattedAvailableTime} on that day.
+Please note that you will only be able to use ${capitalizedApp} from ${fAvailableTime} on that day.
 
 We will, of course, make every effort to minimize any potential disruptions.
 
 Thank you for your understanding.
 Best regards,`;
 
-  if (preview) {
-    document.getElementById("output").innerHTML = `<b>Subject:</b> ${subject}<br><br><b>Email Preview:</b><br><pre>${bodyText}</pre><br><b>Recipients:</b> ${emailList.length} (in BCC)`;
-    return;
-  }
+  const mailto=`mailto:?bcc=${encodeURIComponent(emailList.join(","))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
 
-  const mailto = `mailto:?bcc=${encodeURIComponent(emailList.join(","))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
-  window.location.href = mailto;
+  document.getElementById("output").innerHTML=
+  `<b>Subject:</b> ${subject}<br><br>
+   <b>Email Preview:</b><br><pre>${bodyText}</pre><br>
+   <b>Recipients:</b> ${emailList.length} (in BCC)<br><br>
+   <button onclick="window.location.href='${mailto}'">Open in Outlook</button>`;
 }
 </script>
 
