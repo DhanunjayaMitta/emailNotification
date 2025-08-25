@@ -49,50 +49,37 @@ on:
         default: "N/A"
 
 jobs:
-  deploy:
+  deploy-notifier:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Set deployment variables
-        id: vars
+      - name: Generate Deployment Summary
         run: |
-          echo "APP=${{ github.event.inputs.app }}" >> $GITHUB_ENV
-          echo "ENV=${{ github.event.inputs.env }}" >> $GITHUB_ENV
-          echo "DATE=${{ github.event.inputs.date }}" >> $GITHUB_ENV
-          echo "TIME=${{ github.event.inputs.time }}" >> $GITHUB_ENV
-          echo "DOWNTIME=${{ github.event.inputs.downtime }}" >> $GITHUB_ENV
-          echo "RELEASE=${{ github.event.inputs.release }}" >> $GITHUB_ENV
+          echo "deploy summary" > summary.txt
+          echo "Deployment Notifier" >> summary.txt
+          echo "App: ${{ github.event.inputs.app }}" >> summary.txt
+          echo "Environment: ${{ github.event.inputs.env }}" >> summary.txt
+          echo "Date: ${{ github.event.inputs.date }}" >> summary.txt
+          echo "Time: ${{ github.event.inputs.time }}" >> summary.txt
+          echo "Downtime: ${{ github.event.inputs.downtime }}" >> summary.txt
+          echo "Release: ${{ github.event.inputs.release }}" >> summary.txt
+          echo "" >> summary.txt
+          echo "Open Pre-Filled Form" >> summary.txt
+          echo "" >> summary.txt
+          echo "Note: Excel files must exist at deployment-notifier/users/<App>.xlsx (e.g., users/${{ github.event.inputs.app }}.xlsx)." >> summary.txt
+          echo "" >> summary.txt
+          echo "Job summary generated at run-time" >> summary.txt
 
-      - name: Generate deployment summary
-        id: summary
-        run: |
-          SUMMARY_FILE=deploy_summary.txt
-          echo "deploy summary" > $SUMMARY_FILE
-          echo "Deployment Notifier" >> $SUMMARY_FILE
-          echo "App: $APP" >> $SUMMARY_FILE
-          echo "Environment: $ENV" >> $SUMMARY_FILE
-          echo "Date: $DATE" >> $SUMMARY_FILE
-          echo "Time: $TIME" >> $SUMMARY_FILE
-          echo "Downtime: $DOWNTIME" >> $SUMMARY_FILE
-          echo "Release: $RELEASE" >> $SUMMARY_FILE
-          echo "" >> $SUMMARY_FILE
-          echo "Open Pre-Filled Form" >> $SUMMARY_FILE
-          echo "" >> $SUMMARY_FILE
-          echo "Note: Excel files must exist at deployment-notifier/users/<App>.xlsx (e.g., users/$APP.xlsx)." >> $SUMMARY_FILE
-          echo "" >> $SUMMARY_FILE
-          echo "Job summary generated at run-time" >> $SUMMARY_FILE
-          echo "SUMMARY_FILE=$SUMMARY_FILE" >> $GITHUB_OUTPUT
-
-      - name: Upload summary as artifact
-        uses: actions/upload-artifact@v3
+      - name: Upload Deployment Summary Artifact
+        uses: actions/upload-artifact@v4
         with:
           name: deployment-summary
-          path: ${{ steps.summary.outputs.SUMMARY_FILE }}
+          path: summary.txt
 
-      - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v4
-        with:
-          branch: gh-pages
-          folder: ./  # or your actual build folder if using static site generator
+      - name: Output Pre-Filled Form Link
+        run: |
+          FORM_URL="https://<YOUR-GITHUB-PAGES-URL>/index.html?app=${{ github.event.inputs.app }}&env=${{ github.event.inputs.env }}&date=${{ github.event.inputs.date }}&time=${{ github.event.inputs.time }}&downtime=${{ github.event.inputs.downtime }}&release=${{ github.event.inputs.release }}"
+          echo "Pre-Filled Form Link: $FORM_URL"
+          echo "Pre-Filled Form Link: $FORM_URL" >> $GITHUB_STEP_SUMMARY
