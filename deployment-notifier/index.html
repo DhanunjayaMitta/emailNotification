@@ -115,19 +115,19 @@ function toggleCustomDowntime() {
 // Utility
 // =====================
 function toTitleCase(str) { return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase()+txt.slice(1).toLowerCase()); }
-function parseDowntime(downtime) {
-  // Normalize downtime input
-  const cleaned = downtime.replace(/\s+/g,'').toLowerCase();
 
-  if (cleaned.includes('hour') || cleaned.includes('h')) return parseFloat(cleaned) * 60; // convert hours to minutes
-  if (cleaned.includes('minute') || cleaned.includes('min') || cleaned.endsWith('m')) return parseFloat(cleaned);
-  return 0;
+// Downtime parser: works with "30min", "30 min", "30minutes", "30 m", "30minutes", "1 hour", etc.
+function parseDowntime(downtime) {
+  if(!downtime) return 0;
+  const cleaned = downtime.toLowerCase().replace(/\s+/g,"");
+  const hourMatch = cleaned.match(/^(\d+(\.\d+)?)(h|hour|hours)$/);
+  if(hourMatch) return parseFloat(hourMatch[1])*60;
+  const minMatch = cleaned.match(/^(\d+(\.\d+)?)(m|min|minute|minutes)?$/);
+  if(minMatch) return parseFloat(minMatch[1]);
+  const num = parseFloat(cleaned);
+  return isNaN(num)?0:num;
 }
 
-const downtimeMinutes = parseDowntime(downtimeInput);
-const availableDateTime = new Date(selectedDateTime.getTime() + downtimeMinutes * 60000); // convert minutes → ms
-
-const formattedEnd = availableDateTime.toLocaleTimeString("en-GB", { hour:'2-digit', minute:'2-digit', hour12:false }) + " CEST";
 // =====================
 // Generate email preview
 // =====================
@@ -153,10 +153,10 @@ function generateEmail() {
 
   const selectedDateTime = new Date(`${date}T${time}`);
   const downtimeMinutes = parseDowntime(downtime);
-  const availableDateTime = new Date(selectedDateTime.getTime() + downtimeMinutes * 60000);
+  const availableDateTime = new Date(selectedDateTime.getTime() + downtimeMinutes*60000);
 
-  const formattedStart = selectedDateTime.toLocaleTimeString("en-GB",{hour:'2-digit',minute:'2-digit',hour12:false}) + " CEST";
-  const formattedEnd = availableDateTime.toLocaleTimeString("en-GB",{hour:'2-digit',minute:'2-digit',hour12:false}) + " CEST";
+  const formattedStart = selectedDateTime.toLocaleTimeString("en-GB",{hour:'2-digit',minute:'2-digit',hour12:false})+" CEST";
+  const formattedEnd = availableDateTime.toLocaleTimeString("en-GB",{hour:'2-digit',minute:'2-digit',hour12:false})+" CEST";
   const formattedDate = selectedDateTime.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
 
   const subject = `[REMINDER] Software Installation on ${formattedDate} – ${env}`;
@@ -235,7 +235,3 @@ OSS DevOps Team.`;
 </script>
 </body>
 </html>
-
-
-
-
