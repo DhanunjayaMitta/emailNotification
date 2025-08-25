@@ -115,8 +115,19 @@ function toggleCustomDowntime() {
 // Utility
 // =====================
 function toTitleCase(str) { return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase()+txt.slice(1).toLowerCase()); }
-function parseDowntime(d) { const lower=d.toLowerCase(); if(lower.includes("hour")) return parseFloat(lower)*60; if(lower.includes("minute")) return parseFloat(lower); return 0; }
+function parseDowntime(downtime) {
+  // Normalize downtime input (remove spaces, lowercase)
+  const cleaned = downtime.replace(/\s+/g, '').toLowerCase();
 
+  // Check for hours
+  if (cleaned.includes('hour') || cleaned.includes('h')) return parseFloat(cleaned) * 60;
+
+  // Check for minutes
+  if (cleaned.includes('minute') || cleaned.includes('min') || cleaned.endsWith('m')) return parseFloat(cleaned);
+
+  // Default to 0 if cannot parse
+  return 0;
+}
 // =====================
 // Generate email preview
 // =====================
@@ -157,8 +168,12 @@ We would like to inform you about an upcoming software installation as part of o
 Affected Systems/Applications:
 • ${capitalizedApp}
 
+Environment:
+• ${env}
+
 Scheduled Installation Period:
 • ${formattedDate}, from ${formattedStart} until ${formattedEnd}
+
 Expected Downtime:
 • ${downtime}
 
@@ -220,5 +235,6 @@ OSS DevOps Team.`;
 </script>
 </body>
 </html>
+
 
 
