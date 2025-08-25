@@ -83,29 +83,39 @@ function validateEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-async function loadEmails() {
+async function loadEmails(prefillCallback) {
   const app = document.getElementById("app").value.trim();
   emailList = [];
   document.getElementById("emailCount").textContent = "";
-  if (!app) return;
+  if (!app) {
+    if (prefillCallback) prefillCallback();
+    return;
+  }
 
   try {
-    const fileName = `users/${app.toLowerCase()}.xlsx`; // case-insensitive
+    const fileName = `users/${app.toLowerCase()}.xlsx`; // lowercase to match filenames
     const response = await fetch(fileName);
-    if (!response.ok) { alert(`No email list found for ${app}`); return; }
+    if (!response.ok) { 
+      alert(`No email list found for "${app}". Expected: ${fileName}`); 
+      if (prefillCallback) prefillCallback();
+      return; 
+    }
 
     const data = await response.arrayBuffer();
     const workbook = XLSX.read(data, { type: "array" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
-    // Only pick email column
     emailList = rows.map(row => row.Email || row.email || row.EMAIL)
                     .filter(e => e && validateEmail(e));
+
     document.getElementById("emailCount").textContent = `${emailList.length} email(s) will be notified.`;
+
+    if (prefillCallback) prefillCallback();
   } catch(err) {
     console.error(err);
     alert("Error loading email list.");
+    if (prefillCallback) prefillCallback();
   }
 }
 
@@ -151,10 +161,6 @@ function generateEmail() {
   const now = new Date();
   if (env === "Production" && selectedDateTime < now) {
     alert("Production deployment must be present or future.");
-    return;
-  }
-  if ((env === "Test" || env === "Pre-Production") && selectedDateTime < new Date(now.getTime() - 5*60*1000)) {
-    alert("Test/Pre-Production deployments cannot be too far in the past.");
     return;
   }
 
@@ -206,45 +212,45 @@ Best regards,`;
 (function() {
   const params = new URLSearchParams(window.location.search);
 
-  const app = params.get('app');
-  if (app) { 
-    document.getElementById('app').value = app; 
-    loadEmails(); 
-  }
+  const app = params.get('app') ? decodeURIComponent(params.get('app')) : null;
+  const env = params.get('env') ? decodeURIComponent(params.get('env')) : null;
+  const date = params.get('date') ? decodeURIComponent(params.get('date')) : null;
+  const time = params.get('time') ? decodeURIComponent(params.get('time')) : null;
+  const downtime = params.get('downtime') ? decodeURIComponent(params.get('downtime')) : null;
+  const release = params.get('release') ? decodeURIComponent(params.get('release')) : null;
 
-  const env = params.get('env');
-  if (env) document.getElementById('env').value = env;
+  // Helper function to fill form after emails are loaded
+  const prefill = () => {
+    if (app) document.getElementById('app').value = app;
+    if (env) document.getElementById('env').value = env;
+    if (date) document.getElementById('date').value = date;
+    if (time) document.getElementById('time').value = time;
 
-  const date = params.get('date');
-  if (date) document.getElementById('date').value = date;
-
-  const time = params.get('time');
-  if (time) document.getElementById('time').value = time;
-
-  const downtime = params.get('downtime');
-  if (downtime) {
-    const downtimeSelect = document.getElementById('downtime');
-    const customDowntimeInput = document.getElementById('customDowntime');
-    if (downtimeSelect.querySelector(`option[value="${downtime}"]`)) {
-      downtimeSelect.value = downtime;
-      toggleCustomDowntime();
-    } else {
-      downtimeSelect.value = 'Other';
-      toggleCustomDowntime();
-      customDowntimeInput.value = downtime;
+    if (downtime) {
+      const downtimeSelect = document.getElementById('downtime');
+      const customDowntimeInput = document.getElementById('customDowntime');
+      if (downtimeSelect.querySelector(`option[value="${downtime}"]`)) {
+        downtimeSelect.value = downtime;
+        toggleCustomDowntime();
+      } else {
+        downtimeSelect.value = 'Other';
+        toggleCustomDowntime();
+        customDowntimeInput.value = downtime;
+      }
     }
+
+    if (release) document.getElementById('release').value = release;
+
+    generateEmail();
+  };
+
+  // If app is prefilled, we must load emails first
+  if (app) {
+    document.getElementById('app').value = app;
+    loadEmails(prefill);
+  } else {
+    prefill();
   }
-
-  const release = params.get('release');
-  if (release) document.getElementById('release').value = release;
-
-  // Auto-generate email once emails are loaded
-  const emailCheckInterval = setInterval(() => {
-    if (typeof emailList !== 'undefined' && emailList.length > 0) {
-      clearInterval(emailCheckInterval);
-      generateEmail();
-    }
-  }, 200);
 })();
 </script>
 </body>
