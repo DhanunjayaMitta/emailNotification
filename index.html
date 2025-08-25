@@ -116,18 +116,18 @@ function toggleCustomDowntime() {
 // =====================
 function toTitleCase(str) { return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase()+txt.slice(1).toLowerCase()); }
 function parseDowntime(downtime) {
-  // Normalize downtime input (remove spaces, lowercase)
-  const cleaned = downtime.replace(/\s+/g, '').toLowerCase();
+  // Normalize downtime input
+  const cleaned = downtime.replace(/\s+/g,'').toLowerCase();
 
-  // Check for hours
-  if (cleaned.includes('hour') || cleaned.includes('h')) return parseFloat(cleaned) * 60;
-
-  // Check for minutes
+  if (cleaned.includes('hour') || cleaned.includes('h')) return parseFloat(cleaned) * 60; // convert hours to minutes
   if (cleaned.includes('minute') || cleaned.includes('min') || cleaned.endsWith('m')) return parseFloat(cleaned);
-
-  // Default to 0 if cannot parse
   return 0;
 }
+
+const downtimeMinutes = parseDowntime(downtimeInput);
+const availableDateTime = new Date(selectedDateTime.getTime() + downtimeMinutes * 60000); // convert minutes → ms
+
+const formattedEnd = availableDateTime.toLocaleTimeString("en-GB", { hour:'2-digit', minute:'2-digit', hour12:false }) + " CEST";
 // =====================
 // Generate email preview
 // =====================
@@ -235,6 +235,7 @@ OSS DevOps Team.`;
 </script>
 </body>
 </html>
+
 
 
 
