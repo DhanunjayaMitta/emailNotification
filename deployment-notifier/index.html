@@ -93,7 +93,7 @@ async function loadEmails(prefillCallback) {
   }
 
   try {
-    const fileName = `users/${app.toLowerCase()}.xlsx`; // lowercase to match filenames
+    const fileName = `users/${app.toLowerCase()}.xlsx`;
     const response = await fetch(fileName);
     if (!response.ok) { 
       alert(`No email list found for "${app}". Expected: ${fileName}`); 
@@ -208,7 +208,9 @@ Best regards,`;
 <button onclick="window.location.href='${mailto}'">Open in Outlook</button>`;
 }
 
-// Pre-fill form from URL
+// ===========================
+// Auto-prefill from URL
+// ===========================
 (function() {
   const params = new URLSearchParams(window.location.search);
 
@@ -219,9 +221,7 @@ Best regards,`;
   const downtime = params.get('downtime') ? decodeURIComponent(params.get('downtime')) : null;
   const release = params.get('release') ? decodeURIComponent(params.get('release')) : null;
 
-  // Helper function to fill form after emails are loaded
-  const prefill = () => {
-    if (app) document.getElementById('app').value = app;
+  const prefillForm = () => {
     if (env) document.getElementById('env').value = env;
     if (date) document.getElementById('date').value = date;
     if (time) document.getElementById('time').value = time;
@@ -244,12 +244,11 @@ Best regards,`;
     generateEmail();
   };
 
-  // If app is prefilled, we must load emails first
   if (app) {
     document.getElementById('app').value = app;
-    loadEmails(prefill);
+    loadEmails(prefillForm);
   } else {
-    prefill();
+    prefillForm();
   }
 })();
 </script>
