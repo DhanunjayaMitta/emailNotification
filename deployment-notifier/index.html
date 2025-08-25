@@ -1,37 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="referrer" content="no-referrer" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="UTF-8">
 <title>Deployment Notification Generator</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
-  :root { color-scheme: light dark; }
-  body { font-family: Arial, sans-serif; padding: 20px; max-width: 820px; margin: auto; line-height: 1.45; }
-  h2 { margin: 0 0 16px; }
-  label { font-weight: 600; }
-  label, select, input { display: block; margin: 10px 0; width: 100%; padding: 10px; }
-  select, input { border: 1px solid #ccc; border-radius: 8px; }
-  button { padding: 10px 16px; margin-top: 16px; cursor: pointer; border-radius: 10px; border: 0; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
-  button:hover { filter: brightness(0.98); }
-  #output { white-space: pre-wrap; background: #f7f7f7; padding: 16px; margin-top: 22px; border: 1px solid #ddd; border-radius: 10px; }
+  body { font-family: Arial, sans-serif; padding: 20px; max-width: 750px; margin: auto; }
+  label, select, input { display: block; margin: 10px 0; width: 100%; padding: 8px; }
+  button { padding: 10px 15px; margin-top: 15px; cursor: pointer; }
+  #output { white-space: pre-wrap; background: #f4f4f4; padding: 15px; margin-top: 20px; border: 1px solid #ccc; }
   .inline-group { display: flex; gap: 10px; }
   .inline-group select, .inline-group input { flex: 1; }
   input::placeholder { color: #999; }
   .disabled { background: #eee; }
-  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  @media (max-width: 680px) { .row { grid-template-columns: 1fr; } }
-  .muted { color: #666; font-size: 13px; margin-top: -6px; }
-  .ok { color: #0a7d33; font-weight: 600; }
-  .warn { color: #9c3c00; font-weight: 600; }
-  .err { color: #b00020; font-weight: 600; }
 </style>
 </head>
 <body>
 
 <h2>Deployment Notification Generator</h2>
-<p class="muted">Tip: this page supports pre-filled URLs from your GitHub Actions run (query params: <code>app</code>, <code>env</code>, <code>date</code>, <code>time</code>, <code>downtime</code>, <code>release</code>).</p>
 
 <label for="app">Affected System/Application:</label>
 <select id="app" onchange="loadEmails()">
@@ -51,31 +37,21 @@
   <option value="SIGO TTK">SIGO TTK</option>
   <option value="SIGO WOv15">SIGO WOv15</option>
 </select>
-<p id="emailCount" class="muted"></p>
+<p id="emailCount"></p>
 
-<div class="row">
-  <div>
-    <label for="env">Environment:</label>
-    <select id="env">
-      <option value="">-- Select Environment --</option>
-      <option value="Production">Production</option>
-      <option value="Test">Test</option>
-      <option value="Pre-Production">Pre-Production</option>
-    </select>
-  </div>
-  <div></div>
-</div>
+<label for="env">Environment:</label>
+<select id="env">
+  <option value="">-- Select Environment --</option>
+  <option value="Production">Production</option>
+  <option value="Test">Test</option>
+  <option value="Pre-Production">Pre-Production</option>
+</select>
 
-<div class="row">
-  <div>
-    <label for="date">Deployment Date:</label>
-    <input type="date" id="date">
-  </div>
-  <div>
-    <label for="time">Deployment Time:</label>
-    <input type="time" id="time">
-  </div>
-</div>
+<label for="date">Deployment Date:</label>
+<input type="date" id="date">
+
+<label for="time">Deployment Time:</label>
+<input type="time" id="time">
 
 <label for="downtime">Expected Downtime Duration:</label>
 <div class="inline-group">
@@ -98,147 +74,110 @@
 
 <button onclick="generateEmail()">Generate Email</button>
 
-<div id="output" aria-live="polite"></div>
+<div id="output"></div>
 
 <script>
-  let emailList = [];
+let emailList = [];
 
-  function validateEmail(email) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email || '').trim());
+function validateEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+async function loadEmails() {
+  const app = document.getElementById("app").value.trim();
+  emailList = [];
+  document.getElementById("emailCount").textContent = "";
+  if (!app) return;
+
+  try {
+    const fileName = `users/${app.toLowerCase()}.xlsx`; // case-insensitive
+    const response = await fetch(fileName);
+    if (!response.ok) { alert(`No email list found for ${app}`); return; }
+
+    const data = await response.arrayBuffer();
+    const workbook = XLSX.read(data, { type: "array" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+    // Only pick email column
+    emailList = rows.map(row => row.Email || row.email || row.EMAIL)
+                    .filter(e => e && validateEmail(e));
+    document.getElementById("emailCount").textContent = `${emailList.length} email(s) will be notified.`;
+  } catch(err) {
+    console.error(err);
+    alert("Error loading email list.");
+  }
+}
+
+function toggleCustomDowntime() {
+  const downtime = document.getElementById("downtime").value;
+  const custom = document.getElementById("customDowntime");
+  if (downtime === "Other") { custom.disabled = false; custom.classList.remove("disabled"); }
+  else { custom.disabled = true; custom.value = ""; custom.classList.add("disabled"); }
+}
+
+function toTitleCase(str) {
+  return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase());
+}
+
+function parseDowntime(downtime) {
+  const lower = downtime.toLowerCase();
+  if (lower.includes("hour")) return parseFloat(lower) * 60;
+  if (lower.includes("minute")) return parseFloat(lower);
+  return 0;
+}
+
+function generateEmail() {
+  const appRaw = document.getElementById("app").value.trim();
+  const capitalizedApp = toTitleCase(appRaw);
+  const env = document.getElementById("env").value.trim();
+  const date = document.getElementById("date").value;
+  const time = document.getElementById("time").value;
+  const downtime = document.getElementById("downtime").value === "Other"
+    ? document.getElementById("customDowntime").value.trim()
+    : document.getElementById("downtime").value.trim();
+  const release = document.getElementById("release").value.trim() || "N/A";
+
+  if (!capitalizedApp || !env || !date || !time || !downtime) {
+    alert("Please fill all required fields.");
+    return;
+  }
+  if (emailList.length === 0) {
+    alert("Email list is empty. Make sure the Excel file exists for this app.");
+    return;
   }
 
-  function unique(arr) {
-    return Array.from(new Set(arr));
+  const selectedDateTime = new Date(`${date}T${time}`);
+  const now = new Date();
+  if (env === "Production" && selectedDateTime < now) {
+    alert("Production deployment must be present or future.");
+    return;
+  }
+  if ((env === "Test" || env === "Pre-Production") && selectedDateTime < new Date(now.getTime() - 5*60*1000)) {
+    alert("Test/Pre-Production deployments cannot be too far in the past.");
+    return;
   }
 
-  async function loadEmails(explicitApp) {
-    const appValue = (explicitApp || document.getElementById("app").value || "").trim();
-    emailList = [];
-    document.getElementById("emailCount").textContent = "";
-    if (!appValue) return;
+  const downtimeMinutes = parseDowntime(downtime);
+  const availableDateTime = new Date(selectedDateTime.getTime() + downtimeMinutes * 60000);
+  const formattedAvailableTime = availableDateTime.toLocaleTimeString("en-GB", { hour:'2-digit', minute:'2-digit', hour12:false }) + " CEST";
 
-    try {
-      // Expecting files like:
-      // users/Netwin.xlsx, users/Alarm Manager.xlsx, etc.
-      const fileName = `users/${encodeURIComponent(appValue)}.xlsx`;
-      const response = await fetch(fileName, { cache: "no-cache" });
-      if (!response.ok) {
-        document.getElementById("emailCount").innerHTML =
-          `<span class="err">No email list found for "${appValue}". Expected: ${fileName}</span>`;
-        return;
-      }
+  const formattedDate = selectedDateTime.toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
+  const formattedTime = selectedDateTime.toLocaleTimeString("en-GB", { hour:'2-digit', minute:'2-digit', hour12:false }) + " CEST";
 
-      const data = await response.arrayBuffer();
-      const workbook = XLSX.read(data, { type: "array" });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+  const subject = `[REMINDER] Software Installation on ${formattedDate} – ${env}`;
 
-      // Only pick the Email column (case-insensitive variants)
-      const emails = rows
-        .map(row => row.Email || row.email || row.EMAIL || row["E-mail"] || row["e-mail"] || row["E-Mail"])
-        .filter(e => e && validateEmail(e))
-        .map(e => e.trim());
-
-      emailList = unique(emails).sort((a,b) => a.localeCompare(b));
-
-      const count = emailList.length;
-      if (count > 0) {
-        document.getElementById("emailCount").innerHTML =
-          `<span class="ok">${count} email(s)</span> will be notified.`;
-      } else {
-        document.getElementById("emailCount").innerHTML =
-          `<span class="warn">Email list loaded but no valid "Email" column values found.</span>`;
-      }
-    } catch (err) {
-      console.error(err);
-      document.getElementById("emailCount").innerHTML =
-        `<span class="err">Error loading email list.</span>`;
-    }
-  }
-
-  function toggleCustomDowntime() {
-    const downtime = document.getElementById("downtime").value;
-    const custom = document.getElementById("customDowntime");
-    if (downtime === "Other") {
-      custom.disabled = false;
-      custom.classList.remove("disabled");
-      custom.focus();
-    } else {
-      custom.disabled = true;
-      custom.value = "";
-      custom.classList.add("disabled");
-    }
-  }
-
-  function toTitleCase(str) {
-    return (str || "").replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase());
-  }
-
-  function parseDowntime(downtime) {
-    const lower = (downtime || "").toLowerCase();
-    if (lower.includes("hour")) return parseFloat(lower) * 60;
-    if (lower.includes("minute")) return parseFloat(lower);
-    return 0;
-  }
-
-  function generateEmail() {
-    const appRaw = (document.getElementById("app").value || "").trim();
-    const capitalizedApp = toTitleCase(appRaw);
-    const env = (document.getElementById("env").value || "").trim();
-    const date = (document.getElementById("date").value || "").trim();
-    const time = (document.getElementById("time").value || "").trim();
-    const downtime = document.getElementById("downtime").value === "Other"
-      ? (document.getElementById("customDowntime").value || "").trim()
-      : (document.getElementById("downtime").value || "").trim();
-    const release = (document.getElementById("release").value || "N/A").trim();
-
-    if (!capitalizedApp || !env || !date || !time || !downtime) {
-      alert("Please fill all required fields.");
-      return;
-    }
-    if (emailList.length === 0) {
-      alert("Email list is empty. Make sure the Excel file exists and contains an 'Email' column.");
-      return;
-    }
-
-    const selectedDateTime = new Date(`${date}T${time}`);
-    const now = new Date();
-
-    if (env === "Production" && selectedDateTime < now) {
-      alert("Production deployment must be present or future.");
-      return;
-    }
-    if ((env === "Test" || env === "Pre-Production") && selectedDateTime < new Date(now.getTime() - 5*60*1000)) {
-      alert("Test/Pre-Production deployments cannot be too far in the past.");
-      return;
-    }
-
-    const downtimeMinutes = parseDowntime(downtime);
-    const availableDateTime = new Date(selectedDateTime.getTime() + downtimeMinutes * 60000);
-
-    // NOTE: Adjust the timezone label if needed (CEST/CET)
-    const formattedAvailableTime = availableDateTime.toLocaleTimeString("en-GB", { hour:'2-digit', minute:'2-digit', hour12:false }) + " CEST";
-    const formattedDate = selectedDateTime.toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
-    const formattedTime = selectedDateTime.toLocaleTimeString("en-GB", { hour:'2-digit', minute:'2-digit', hour12:false }) + " CEST";
-
-    const subject = `[REMINDER] Software Installation on ${formattedDate} – ${env}`;
-
-    const bodyHTML = `Dear Sir or Madam,<br><br>
-We would like to inform you about an upcoming software installation as part of our regular maintenance and development measures:<br><br>
+  const bodyHTML = `Dear Sir or Madam,<br><br>
 Affected Systems/Applications:<br>
 &bull; <strong>${capitalizedApp}</strong><br><br>
 Scheduled Installation Period:<br>
 &bull; <strong>${formattedDate}, from ${formattedTime} until ${formattedAvailableTime}</strong><br><br>
 Vendor Release Notes:<br>
 &bull; ${release}<br><br>
-Please note that you will only be able to use <strong>${capitalizedApp} from ${formattedAvailableTime}</strong> on that day. We will send a reminder email several times before this appointment.<br><br>
-We will, of course, make every effort to minimize any potential disruptions.<br><br>
-Thank you for your understanding.<br>
-Best regards,`;
+Please note that you will only be able to use <strong>${capitalizedApp} from ${formattedAvailableTime}</strong> on that day.<br><br>
+Thank you for your understanding.<br>Best regards,`;
 
-    const bodyText = `Dear Sir or Madam,
-
-We would like to inform you about an upcoming software installation as part of our regular maintenance and development measures:
+  const bodyText = `Dear Sir or Madam,
 
 Affected Systems/Applications:
 • ${capitalizedApp}
@@ -249,103 +188,64 @@ Scheduled Installation Period:
 Vendor Release Notes:
 • ${release}
 
-We will, of course, make every effort to minimize any potential disruptions.
+Recipients: ${emailList.length} (in BCC)
 
 Thank you for your understanding.
 Best regards,`;
 
-    const mailto = `mailto:?bcc=${encodeURIComponent(emailList.join(","))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
+  const mailto = `mailto:?bcc=${encodeURIComponent(emailList.join(","))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
 
-    document.getElementById("output").innerHTML = `
+  document.getElementById("output").innerHTML = `
 <b>Subject:</b> ${subject}<br><br>
 <b>Email Preview:</b><br><div style="white-space: normal;">${bodyHTML}</div><br>
-<b>Recipients:</b> ${emailList.length} (in BCC)<br>
-<div class="muted" style="margin-top:8px;">(Debug) First 3 recipients: ${emailList.slice(0,3).join(", ")}${emailList.length>3?"…":""}</div>
-<br>
+<b>Recipients:</b> ${emailList.length} (in BCC)<br><br>
 <button onclick="window.location.href='${mailto}'">Open in Outlook</button>`;
+}
+
+// Pre-fill form from URL
+(function() {
+  const params = new URLSearchParams(window.location.search);
+
+  const app = params.get('app');
+  if (app) { 
+    document.getElementById('app').value = app; 
+    loadEmails(); 
   }
 
-  // ---- Auto-fill from query params (case-insensitive select matching) ----
-  (function autofillFromQuery() {
-    const params = new URLSearchParams(window.location.search);
+  const env = params.get('env');
+  if (env) document.getElementById('env').value = env;
 
-    const appQP = params.get('app');
-    if (appQP) {
-      const appSelect = document.getElementById('app');
-      const appStr = decodeURIComponent(appQP);
-      // Try to match ignoring case
-      for (const opt of appSelect.options) {
-        if (opt.value.toLowerCase() === appStr.toLowerCase()) {
-          appSelect.value = opt.value;
-          break;
-        }
-      }
-      loadEmails(appSelect.value || appStr); // Load emails even if not in list (file may still exist)
+  const date = params.get('date');
+  if (date) document.getElementById('date').value = date;
+
+  const time = params.get('time');
+  if (time) document.getElementById('time').value = time;
+
+  const downtime = params.get('downtime');
+  if (downtime) {
+    const downtimeSelect = document.getElementById('downtime');
+    const customDowntimeInput = document.getElementById('customDowntime');
+    if (downtimeSelect.querySelector(`option[value="${downtime}"]`)) {
+      downtimeSelect.value = downtime;
+      toggleCustomDowntime();
+    } else {
+      downtimeSelect.value = 'Other';
+      toggleCustomDowntime();
+      customDowntimeInput.value = downtime;
     }
+  }
 
-    const envQP = params.get('env');
-    if (envQP) {
-      const envSelect = document.getElementById('env');
-      const envStr = decodeURIComponent(envQP);
-      for (const opt of envSelect.options) {
-        if (opt.value.toLowerCase() === envStr.toLowerCase()) {
-          envSelect.value = opt.value;
-          break;
-        }
-      }
+  const release = params.get('release');
+  if (release) document.getElementById('release').value = release;
+
+  // Auto-generate email once emails are loaded
+  const emailCheckInterval = setInterval(() => {
+    if (typeof emailList !== 'undefined' && emailList.length > 0) {
+      clearInterval(emailCheckInterval);
+      generateEmail();
     }
-
-    const dateQP = params.get('date');
-    if (dateQP) document.getElementById('date').value = decodeURIComponent(dateQP);
-
-    const timeQP = params.get('time');
-    if (timeQP) document.getElementById('time').value = decodeURIComponent(timeQP);
-
-    const downtimeQP = params.get('downtime');
-    if (downtimeQP) {
-      const val = decodeURIComponent(downtimeQP);
-      const downtimeSelect = document.getElementById('downtime');
-      const custom = document.getElementById('customDowntime');
-      let matched = false;
-      for (const opt of downtimeSelect.options) {
-        if (opt.value.toLowerCase() === val.toLowerCase()) {
-          downtimeSelect.value = opt.value;
-          matched = true;
-          break;
-        }
-      }
-      if (!matched) {
-        downtimeSelect.value = 'Other';
-        toggleCustomDowntime();
-        custom.value = val;
-      } else {
-        toggleCustomDowntime();
-      }
-    }
-
-    const releaseQP = params.get('release');
-    if (releaseQP) document.getElementById('release').value = decodeURIComponent(releaseQP);
-
-    // If all core fields came from URL and emails loaded, auto-generate preview
-    const haveCore =
-      (document.getElementById("app").value &&
-       document.getElementById("env").value &&
-       document.getElementById("date").value &&
-       document.getElementById("time").value &&
-       (document.getElementById("downtime").value || document.getElementById("customDowntime").value));
-
-    if (haveCore) {
-      const iv = setInterval(() => {
-        if (emailList.length > 0) {
-          clearInterval(iv);
-          generateEmail();
-        }
-      }, 200);
-      // Also give up after 5 seconds to avoid looping forever
-      setTimeout(() => clearInterval(iv), 5000);
-    }
-  })();
+  }, 200);
+})();
 </script>
-
 </body>
 </html>
