@@ -121,46 +121,62 @@ function parseDowntime(d) { const lower=d.toLowerCase(); if(lower.includes("hour
 // Generate email preview
 // =====================
 function generateEmail() {
-  const app = toTitleCase(appSelect.value.trim());
-  const env = envSelect.value.trim();
+  const appRaw = document.getElementById("app").value.trim();
+  const capitalizedApp = toTitleCase(appRaw);
+  const env = document.getElementById("env").value.trim();
   const date = document.getElementById("date").value;
   const time = document.getElementById("time").value;
-  const downtime = downtimeSelect.value==="Other"?document.getElementById("customDowntime").value.trim():downtimeSelect.value.trim();
+  const downtime = document.getElementById("downtime").value === "Other"
+    ? document.getElementById("customDowntime").value.trim()
+    : document.getElementById("downtime").value.trim();
   const release = document.getElementById("release").value.trim() || "N/A";
 
-  if(!app || !env || !date || !time || !downtime) { alert("Please fill all required fields."); return; }
-  if(emailList.length===0) { alert("Email list is empty. Make sure the Excel file exists for this app."); return; }
+  if (!capitalizedApp || !env || !date || !time || !downtime) {
+    alert("Please fill all required fields.");
+    return;
+  }
+  if (emailList.length === 0) {
+    alert("Email list is empty. Make sure the Excel file exists for this app.");
+    return;
+  }
 
   const selectedDateTime = new Date(`${date}T${time}`);
   const downtimeMinutes = parseDowntime(downtime);
-  const availableDateTime = new Date(selectedDateTime.getTime() + downtimeMinutes*60000);
+  const availableDateTime = new Date(selectedDateTime.getTime() + downtimeMinutes * 60000);
 
-  const formattedAvailableTime = availableDateTime.toLocaleTimeString("en-GB",{hour:'2-digit',minute:'2-digit',hour12:false})+" CEST";
+  const formattedStart = selectedDateTime.toLocaleTimeString("en-GB",{hour:'2-digit',minute:'2-digit',hour12:false}) + " CEST";
+  const formattedEnd = availableDateTime.toLocaleTimeString("en-GB",{hour:'2-digit',minute:'2-digit',hour12:false}) + " CEST";
   const formattedDate = selectedDateTime.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
-  const formattedTime = selectedDateTime.toLocaleTimeString("en-GB",{hour:'2-digit',minute:'2-digit',hour12:false})+" CEST";
 
   const subject = `[REMINDER] Software Installation on ${formattedDate} – ${env}`;
+
   const bodyText = `Dear Sir or Madam,
 
+We would like to inform you about an upcoming software installation as part of our regular maintenance and development measures:
+
 Affected Systems/Applications:
-• ${app}
+• ${capitalizedApp}
 
 Scheduled Installation Period:
-• ${formattedDate}, from ${formattedTime} until ${formattedAvailableTime}
+• ${formattedDate}, from ${formattedStart} until ${formattedEnd}
+Expected Downtime:
+• ${downtime}
 
 Vendor Release Notes:
 • ${release}
 
-Recipients: ${emailList.length} (in BCC)
+Please note that you will only be able to use ${capitalizedApp} from ${formattedEnd} on ${formattedDate}.
+We will, of course, make every effort to minimize any potential disruptions.
 
 Thank you for your understanding.
-Best regards,`;
+Best regards,
+OSS DevOps Team.`;
 
   const mailto = `mailto:?bcc=${encodeURIComponent(emailList.join(","))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
 
   document.getElementById("output").innerHTML = `
 <b>Subject:</b> ${subject}<br><br>
-<b>Email Preview:</b><br><div style="white-space: normal;">Dear Sir or Madam,<br>• ${app}<br>Scheduled: ${formattedDate} ${formattedTime} to ${formattedAvailableTime}<br>Release: ${release}</div><br>
+<b>Email Preview:</b><br><pre style="white-space: pre-wrap;">${bodyText}</pre><br>
 <b>Recipients:</b> ${emailList.length} (in BCC)<br><br>
 <button onclick="window.location.href='${mailto}'">Open in Outlook</button>`;
 }
@@ -204,4 +220,5 @@ Best regards,`;
 </script>
 </body>
 </html>
+
 
