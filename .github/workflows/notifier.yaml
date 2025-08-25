@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       app:
-        description: "Affected System/Application (must match Excel filename, e.g., Netwin, Alarm Manager)"
+        description: "Affected System/Application"
         required: true
         type: choice
         options:
@@ -35,15 +35,15 @@ on:
         required: true
         type: string
       time:
-        description: "Deployment Time (HH:MM, 24h)"
+        description: "Deployment Time (HH:MM, e.g., 17:00)"
         required: true
         type: string
       downtime:
-        description: "Expected Downtime (e.g., 30 minutes or 2 hours)"
+        description: "Expected Downtime (e.g., 30 minutes)"
         required: true
         type: string
       release:
-        description: "Vendor Release Notes / Version (optional)"
+        description: "Vendor Release Notes / Version"
         required: false
         type: string
         default: "N/A"
@@ -51,19 +51,13 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pages: write
-      id-token: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Build the static site into ./public (copy everything under deployment-notifier)
       - name: Prepare public folder
         run: |
-          rm -rf public
           mkdir -p public
           cp -r deployment-notifier/* public/
 
@@ -72,30 +66,8 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
-          # Keep history off for faster deploys
-          force_orphan: true
 
-      # Wait for GitHub Pages to actually serve the new content
-      - name: Wait for Pages to be live
-        run: |
-          USERNAME=${GITHUB_REPOSITORY_OWNER}
-          REPO=$(basename "$GITHUB_REPOSITORY")
-          URL="https://${USERNAME}.github.io/${REPO}/index.html"
-          echo "Waiting for $URL ..."
-          for i in {1..24}; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
-            if [ "$STATUS" = "200" ]; then
-              echo "GitHub Pages is live!"
-              exit 0
-            fi
-            echo "Still not ready (status $STATUS)... retry $i"
-            sleep 5
-          done
-          echo "Timeout: GitHub Pages did not go live in time."
-          exit 1
-
-      - name: Build pre-filled link and add to summary
-        shell: bash
+      - name: Show Deployment Notifier URL
         run: |
           APP="${{ github.event.inputs.app }}"
           ENV="${{ github.event.inputs.env }}"
@@ -104,40 +76,20 @@ jobs:
           DOWNTIME="${{ github.event.inputs.downtime }}"
           RELEASE="${{ github.event.inputs.release }}"
 
-          # URL-encode (use Python's urllib.parse.quote for reliability)
-          enc () { python3 - <<'PY'
-          import sys, urllib.parse
-          print(urllib.parse.quote(sys.stdin.read().strip()))
-          PY
-          }
+          # URL encode
+          urlencode() { python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$1"; }
 
-          APP_ENC=$(printf "%s" "$APP" | enc)
-          ENV_ENC=$(printf "%s" "$ENV" | enc)
-          DATE_ENC=$(printf "%s" "$DATE" | enc)
-          TIME_ENC=$(printf "%s" "$TIME" | enc)
-          DOWNTIME_ENC=$(printf "%s" "$DOWNTIME" | enc)
-          RELEASE_ENC=$(printf "%s" "$RELEASE" | enc)
+          APP_ENC=$(urlencode "$APP")
+          ENV_ENC=$(urlencode "$ENV")
+          DATE_ENC=$(urlencode "$DATE")
+          TIME_ENC=$(urlencode "$TIME")
+          DOWNTIME_ENC=$(urlencode "$DOWNTIME")
+          RELEASE_ENC=$(urlencode "$RELEASE")
 
           USERNAME=${GITHUB_REPOSITORY_OWNER}
-          REPO=$(basename "$GITHUB_REPOSITORY")
-          BASE_URL="https://${USERNAME}.github.io/${REPO}/index.html"
+          REPO=$(basename $GITHUB_REPOSITORY)
 
-          LINK="${BASE_URL}?app=${APP_ENC}&env=${ENV_ENC}&date=${DATE_ENC}&time=${TIME_ENC}&downtime=${DOWNTIME_ENC}&release=${RELEASE_ENC}"
+          URL="https://${USERNAME}.github.io/${REPO}/?app=${APP_ENC}&env=${ENV_ENC}&date=${DATE_ENC}&time=${TIME_ENC}&downtime=${DOWNTIME_ENC}&release=${RELEASE_ENC}"
 
-          echo "Pre-Filled Link:"
-          echo "$LINK"
-
-          {
-            echo "## Deployment Notifier"
-            echo
-            echo "**App:** $APP  "
-            echo "**Environment:** $ENV  "
-            echo "**Date:** $DATE  "
-            echo "**Time:** $TIME  "
-            echo "**Downtime:** $DOWNTIME  "
-            echo "**Release:** $RELEASE  "
-            echo
-            echo "[Open Pre-Filled Form]($LINK)"
-            echo
-            echo "> Note: Excel files must exist at \`deployment-notifier/users/<App>.xlsx\` (e.g., \`users/Netwin.xlsx\`)."
-          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployment Notifier URL:"
+          echo "$URL"
