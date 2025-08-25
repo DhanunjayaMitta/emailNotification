@@ -156,26 +156,6 @@ function generateEmail() {
   const formattedEnd = endDateTime.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false}) + " CEST";
 
   // =====================
-  // Deployment Summary
-  // =====================
-  document.getElementById("summary").innerHTML = `
-<b>Deploy Summary</b>
-Deployment Notifier
-App: ${capitalizedApp}
-Environment: ${env}
-Date: ${formattedDate}
-Time: ${formattedStart}
-Downtime: ${downtime}
-Release: ${release}
-
-<a href="${generatePrefillLink()}">Open Pre-Filled Form</a>
-
-Note: Excel files must exist at deployment-notifier/users/&lt;App&gt;.xlsx (e.g., users/${capitalizedApp}.xlsx).
-
-Job summary generated at run-time
-`;
-
-  // =====================
   // Email preview
   // =====================
   const subject = `[REMINDER] Software Installation on ${formattedDate} – ${env}`;
@@ -272,3 +252,4 @@ function prefillEmailPreview() { generateEmail(); }
 
 </body>
 </html>
+
