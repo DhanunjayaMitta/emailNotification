@@ -31,28 +31,30 @@ on:
           - Test
           - Pre-Production
       date:
-        description: "Deployment date (YYYY-MM-DD, leave empty for today)"
-        required: false
-        type: string
-      time:
-        description: "Deployment time (HH:MM)"
+        description: "Deployment date"
         required: true
         type: string
-        default: "09:00"
+        default: ${{ github.event.workflow_run.updated_at }}
+      time:
+        description: "Deployment time"
+        required: true
+        type: string
+        default: "17:00"
       downtime:
-        description: "Expected downtime (e.g., 30 minutes)"
+        description: "Expected downtime"
         required: true
         type: string
         default: "30 minutes"
       release:
-        description: "Vendor Release Notes / Version (text)"
-        required: true
+        description: "Vendor release notes / version"
+        required: false
         type: string
         default: "N/A"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -78,21 +80,18 @@ jobs:
           DOWNTIME="${{ github.event.inputs.downtime }}"
           RELEASE="${{ github.event.inputs.release }}"
 
-          # If date is empty, use today
-          if [ -z "$DATE" ]; then
-            DATE=$(date +%Y-%m-%d)
-          fi
-
-          # URL encode inputs
-          APP_ENC=$(echo "$APP" | sed 's/ /%20/g')
-          ENV_ENC=$(echo "$ENV" | sed 's/ /%20/g')
-          DOWNTIME_ENC=$(echo "$DOWNTIME" | sed 's/ /%20/g')
-          RELEASE_ENC=$(echo "$RELEASE" | sed 's/ /%20/g')
+          # Encode spaces
+          APP_ENCODED=$(echo "$APP" | sed 's/ /%20/g')
+          ENV_ENCODED=$(echo "$ENV" | sed 's/ /%20/g')
+          DATE_ENCODED="$DATE"
+          TIME_ENCODED="$TIME"
+          DOWNTIME_ENCODED=$(echo "$DOWNTIME" | sed 's/ /%20/g')
+          RELEASE_ENCODED=$(echo "$RELEASE" | sed 's/ /%20/g')
 
           USERNAME=${GITHUB_REPOSITORY_OWNER}
           REPO=$(basename $GITHUB_REPOSITORY)
 
-          URL="https://${USERNAME}.github.io/${REPO}/?app=${APP_ENC}&env=${ENV_ENC}&date=${DATE}&time=${TIME}&downtime=${DOWNTIME_ENC}&release=${RELEASE_ENC}"
+          URL="https://${USERNAME}.github.io/${REPO}/?app=${APP_ENCODED}&env=${ENV_ENCODED}&date=${DATE_ENCODED}&time=${TIME_ENCODED}&downtime=${DOWNTIME_ENCODED}&release=${RELEASE_ENCODED}"
 
-          echo "Deployment Notifier is ready! Open this URL in your browser:"
+          echo "Deployment Notifier URL:"
           echo "$URL"
