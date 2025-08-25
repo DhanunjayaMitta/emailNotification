@@ -93,21 +93,3 @@ jobs:
       
           echo "Deployment Notifier URL:"
           echo "$URL"
-
-      - name: Deployment Summary
-        run: |
-          echo "## Deploy Summary"
-          echo "Deployment Notifier"
-          echo "App: ${{ github.event.inputs.app }}"
-          echo "Environment: ${{ github.event.inputs.env }}"
-          echo "Date: ${{ github.event.inputs.date }}"
-          echo "Time: ${{ github.event.inputs.time }}"
-          echo "Downtime: ${{ github.event.inputs.downtime }}"
-          echo "Release: ${{ github.event.inputs.release }}"
-          echo ""
-          echo "Open Pre-Filled Form:"
-          echo "https://${{ github.repository_owner }}.github.io/${{ github.repository }}/?app=${{ github.event.inputs.app }}&env=${{ github.event.inputs.env }}&date=${{ github.event.inputs.date }}&time=${{ github.event.inputs.time }}&downtime=${{ github.event.inputs.downtime }}&release=${{ github.event.inputs.release }}"
-          echo ""
-          echo "Note: Excel files must exist at deployment-notifier/users/<App>.xlsx (e.g., users/Netwin.xlsx)."
-          echo ""
-          echo "Job summary generated at run-time"
