@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       app:
-        description: "Select the Application"
+        description: "Application name (e.g., Netwin)"
         required: true
         type: choice
         options:
@@ -22,48 +22,45 @@ on:
           - SIGO WO
           - SIGO TTK
           - SIGO WOv15
-        default: Netwin
       env:
-        description: "Environment (Production, Test, Pre-Production)"
+        description: "Environment"
         required: true
         type: choice
         options:
           - Production
           - Test
           - Pre-Production
-        default: Production
       date:
-        description: "Deployment Date (YYYY-MM-DD, leave 'TODAY' for current date)"
+        description: "Deployment date (YYYY-MM-DD)"
         required: true
         type: string
-        default: "TODAY"
+        default: ${{ github.event.workflow_run.updated_at }}
       time:
-        description: "Deployment Time (HH:MM, 24-hour format)"
+        description: "Deployment time (HH:MM)"
         required: true
         type: string
-        default: "17:00"
+        default: "09:00"
       downtime:
-        description: "Expected Downtime (e.g., 30 minutes)"
+        description: "Expected downtime (e.g., 30 minutes)"
         required: true
         type: string
         default: "30 minutes"
       release:
-        description: "Vendor Release Notes / Version"
-        required: false
+        description: "Vendor Release Notes / Version (text)"
+        required: true
         type: string
         default: "N/A"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Prepare public folder
         run: |
-          mkdir -p public
+          mkdir public
           cp -r deployment-notifier/* public/
 
       - name: Deploy to GitHub Pages
@@ -82,20 +79,16 @@ jobs:
           DOWNTIME="${{ github.event.inputs.downtime }}"
           RELEASE="${{ github.event.inputs.release }}"
 
-          # Replace placeholder with current date if needed
-          if [ "$DATE" = "TODAY" ]; then
-            DATE=$(date +%Y-%m-%d)
-          fi
+          # URL encode inputs
+          APP_ENC=$(echo "$APP" | sed 's/ /%20/g')
+          ENV_ENC=$(echo "$ENV" | sed 's/ /%20/g')
+          DOWNTIME_ENC=$(echo "$DOWNTIME" | sed 's/ /%20/g')
+          RELEASE_ENC=$(echo "$RELEASE" | sed 's/ /%20/g')
 
-          # URL-encode spaces
-          DOWNTIME_ENCODED=$(echo "$DOWNTIME" | sed 's/ /%20/g')
-          RELEASE_ENCODED=$(echo "$RELEASE" | sed 's/ /%20/g')
-
-          # Get username and repo dynamically
           USERNAME=${GITHUB_REPOSITORY_OWNER}
           REPO=$(basename $GITHUB_REPOSITORY)
 
-          URL="https://${USERNAME}.github.io/${REPO}/?app=${APP}&env=${ENV}&date=${DATE}&time=${TIME}&downtime=${DOWNTIME_ENCODED}&release=${RELEASE_ENCODED}"
+          URL="https://${USERNAME}.github.io/${REPO}/?app=${APP_ENC}&env=${ENV_ENC}&date=${DATE}&time=${TIME}&downtime=${DOWNTIME_ENC}&release=${RELEASE_ENC}"
 
           echo "Deployment Notifier is ready! Open this URL in your browser:"
           echo "$URL"
