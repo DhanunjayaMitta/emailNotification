@@ -1,4 +1,4 @@
-name: Deploy Deployment Notifier
+name: Deployment Notifier
 
 on:
   workflow_dispatch:
@@ -51,45 +51,48 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Prepare public folder
+      - name: Set deployment variables
+        id: vars
         run: |
-          mkdir -p public
-          cp -r deployment-notifier/* public/
+          echo "APP=${{ github.event.inputs.app }}" >> $GITHUB_ENV
+          echo "ENV=${{ github.event.inputs.env }}" >> $GITHUB_ENV
+          echo "DATE=${{ github.event.inputs.date }}" >> $GITHUB_ENV
+          echo "TIME=${{ github.event.inputs.time }}" >> $GITHUB_ENV
+          echo "DOWNTIME=${{ github.event.inputs.downtime }}" >> $GITHUB_ENV
+          echo "RELEASE=${{ github.event.inputs.release }}" >> $GITHUB_ENV
+
+      - name: Generate deployment summary
+        id: summary
+        run: |
+          SUMMARY_FILE=deploy_summary.txt
+          echo "deploy summary" > $SUMMARY_FILE
+          echo "Deployment Notifier" >> $SUMMARY_FILE
+          echo "App: $APP" >> $SUMMARY_FILE
+          echo "Environment: $ENV" >> $SUMMARY_FILE
+          echo "Date: $DATE" >> $SUMMARY_FILE
+          echo "Time: $TIME" >> $SUMMARY_FILE
+          echo "Downtime: $DOWNTIME" >> $SUMMARY_FILE
+          echo "Release: $RELEASE" >> $SUMMARY_FILE
+          echo "" >> $SUMMARY_FILE
+          echo "Open Pre-Filled Form" >> $SUMMARY_FILE
+          echo "" >> $SUMMARY_FILE
+          echo "Note: Excel files must exist at deployment-notifier/users/<App>.xlsx (e.g., users/$APP.xlsx)." >> $SUMMARY_FILE
+          echo "" >> $SUMMARY_FILE
+          echo "Job summary generated at run-time" >> $SUMMARY_FILE
+          echo "SUMMARY_FILE=$SUMMARY_FILE" >> $GITHUB_OUTPUT
+
+      - name: Upload summary as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-summary
+          path: ${{ steps.summary.outputs.SUMMARY_FILE }}
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+        uses: actions/deploy-pages@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public
-
-      - name: Show Deployment Notifier URL
-        run: |
-          APP="${{ github.event.inputs.app }}"
-          ENV="${{ github.event.inputs.env }}"
-          DATE="${{ github.event.inputs.date }}"
-          TIME="${{ github.event.inputs.time }}"
-          DOWNTIME="${{ github.event.inputs.downtime }}"
-          RELEASE="${{ github.event.inputs.release }}"
-      
-          # URL encode
-          urlencode() { python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$1"; }
-      
-          APP_ENC=$(urlencode "$APP")
-          ENV_ENC=$(urlencode "$ENV")
-          DATE_ENC=$(urlencode "$DATE")
-          TIME_ENC=$(urlencode "$TIME")
-          DOWNTIME_ENC=$(urlencode "$DOWNTIME")
-          RELEASE_ENC=$(urlencode "$RELEASE")
-      
-          USERNAME=${GITHUB_REPOSITORY_OWNER}
-          REPO=$(basename $GITHUB_REPOSITORY)
-      
-          URL="https://${USERNAME}.github.io/${REPO}/?app=${APP_ENC}&env=${ENV_ENC}&date=${DATE_ENC}&time=${TIME_ENC}&downtime=${DOWNTIME_ENC}&release=${RELEASE_ENC}"
-      
-          echo "Deployment Notifier URL:"
-          echo "$URL"
+          branch: gh-pages
+          folder: ./  # or your actual build folder if using static site generator
