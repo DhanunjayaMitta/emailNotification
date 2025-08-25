@@ -72,7 +72,7 @@
 <label for="release">Vendor Release Notes / Version:</label>
 <input type="text" id="release" placeholder="Anything can be entered here">
 
-<button onclick="generateEmail()">Generate Email</button>
+<button onclick="generateEmail()">Open in Outlook</button>
 <button onclick="previewEmail()">Preview</button>
 
 <div id="output"></div>
@@ -101,7 +101,7 @@ async function loadEmails() {
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
     emailList = rows.map(row => row.Email || row.email || row.EMAIL)
                     .filter(e => e && validateEmail(e));
-    document.getElementById("emailCount").textContent = `${emailList.length} email(s) will be notified.`;
+    document.getElementById("emailCount").textContent = `📧 ${emailList.length} email(s) will be notified.`;
   } catch(err) {
     console.error(err);
     alert("Error loading email list.");
@@ -119,7 +119,6 @@ function toTitleCase(str) {
   return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase());
 }
 
-// Parse downtime to minutes
 function parseDowntime(downtime) {
   const lower = downtime.toLowerCase();
   if (lower.includes("hour")) return parseFloat(lower) * 60;
@@ -127,7 +126,6 @@ function parseDowntime(downtime) {
   return 0;
 }
 
-// Prefill fields from URL query
 function getQueryParams() {
   const params = new URLSearchParams(window.location.search);
   return {
@@ -135,13 +133,13 @@ function getQueryParams() {
     env: params.get('env') || '',
     date: params.get('date') || '',
     time: params.get('time') || '',
-    downtime: params.get('downtime') || ''
+    downtime: params.get('downtime') || '',
+    release: params.get('release') || ''
   };
 }
 
 function prefillFields() {
-  const { app, env, date, time, downtime } = getQueryParams();
-
+  const { app, env, date, time, downtime, release } = getQueryParams();
   if (app) { document.getElementById('app').value = app; loadEmails(); }
   if (env) document.getElementById('env').value = env;
   if (date) document.getElementById('date').value = date;
@@ -158,13 +156,12 @@ function prefillFields() {
       customDowntime.value = downtime;
     }
   }
+  if (release) document.getElementById('release').value = release;
 }
 
 window.onload = prefillFields;
 
-function previewEmail() {
-  generateEmail(true);
-}
+function previewEmail() { generateEmail(true); }
 
 async function generateEmail(preview=false) {
   const appRaw = document.getElementById("app").value.trim();
