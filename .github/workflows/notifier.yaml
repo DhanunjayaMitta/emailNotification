@@ -67,7 +67,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
 
-      - name: Show Deployment Notifier URL
+      - name: Create Deployment Summary
         run: |
           APP="${{ github.event.inputs.app }}"
           ENV="${{ github.event.inputs.env }}"
@@ -75,45 +75,25 @@ jobs:
           TIME="${{ github.event.inputs.time }}"
           DOWNTIME="${{ github.event.inputs.downtime }}"
           RELEASE="${{ github.event.inputs.release }}"
-
-          # URL encode function
-          urlencode() { python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$1"; }
-
-          APP_ENC=$(urlencode "$APP")
-          ENV_ENC=$(urlencode "$ENV")
-          DATE_ENC=$(urlencode "$DATE")
-          TIME_ENC=$(urlencode "$TIME")
-          DOWNTIME_ENC=$(urlencode "$DOWNTIME")
-          RELEASE_ENC=$(urlencode "$RELEASE")
 
           USERNAME=${GITHUB_REPOSITORY_OWNER}
           REPO=$(basename $GITHUB_REPOSITORY)
+          URL="https://${USERNAME}.github.io/${REPO}/?app=${APP}&env=${ENV}&date=${DATE}&time=${TIME}&downtime=${DOWNTIME}&release=${RELEASE}"
 
-          URL="https://${USERNAME}.github.io/${REPO}/?app=${APP_ENC}&env=${ENV_ENC}&date=${DATE_ENC}&time=${TIME_ENC}&downtime=${DOWNTIME_ENC}&release=${RELEASE_ENC}"
-
-          echo "Deployment Notifier URL:"
-          echo "$URL"
-
-      - name: Show Deployment Summary
-        run: |
-          APP="${{ github.event.inputs.app }}"
-          ENV="${{ github.event.inputs.env }}"
-          DATE="${{ github.event.inputs.date }}"
-          TIME="${{ github.event.inputs.time }}"
-          DOWNTIME="${{ github.event.inputs.downtime }}"
-          RELEASE="${{ github.event.inputs.release }}"
-
-          echo "deploy summary"
-          echo "Deployment Notifier"
-          echo "App: $APP"
-          echo "Environment: $ENV"
-          echo "Date: $DATE"
-          echo "Time: $TIME"
-          echo "Downtime: $DOWNTIME"
-          echo "Release: $RELEASE"
-          echo ""
-          echo "Open Pre-Filled Form"
-          echo ""
-          echo "Note: Excel files must exist at deployment-notifier/users/<App>.xlsx (e.g., users/$APP.xlsx)."
-          echo ""
-          echo "Job summary generated at run-time"
+          # Write deployment summary to GitHub Actions job summary
+          echo "## Deploy Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment Notifier**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "App: $APP" >> $GITHUB_STEP_SUMMARY
+          echo "Environment: $ENV" >> $GITHUB_STEP_SUMMARY
+          echo "Date: $DATE" >> $GITHUB_STEP_SUMMARY
+          echo "Time: $TIME" >> $GITHUB_STEP_SUMMARY
+          echo "Downtime: $DOWNTIME" >> $GITHUB_STEP_SUMMARY
+          echo "Release: $RELEASE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[Open Pre-Filled Form]($URL)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Note: Excel files must exist at deployment-notifier/users/<App>.xlsx (e.g., users/$APP.xlsx)." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Job summary generated at run-time" >> $GITHUB_STEP_SUMMARY
