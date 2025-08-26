@@ -31,7 +31,7 @@
 </select>
 
 <label for="date">Deployment Date:</label>
-<input type="text" id="date" placeholder="yyyy-mm-dd, yyyy.mm.dd, dd-mm-yyyy, dd.mm.yyyy">
+<input type="date" id="date">
 
 <label for="time">Deployment Time:</label>
 <input type="time" id="time">
@@ -125,27 +125,25 @@ function parseDowntime(downtime) {
 }
 
 // =====================
-// Date parsing
+// Date parsing utility
 // =====================
-function parseDateInput(input) {
-  if (!input) return null;
-  input = input.trim();
+function normalizeDate(input) {
+  if (!input) return "";
+  // Already ISO
+  if (/^\d{4}-\d{2}-\d{2}$/.test(input)) return input;
 
-  // yyyy-mm-dd or yyyy.mm.dd
-  let match = input.match(/^(\d{4})[-.](\d{2})[-.](\d{2})$/);
-  if (match) {
-    const [_, y, m, d] = match;
-    return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+  // yyyy.mm.dd or yyyy-mm-dd
+  if (/^\d{4}[.-]\d{2}[.-]\d{2}$/.test(input)) {
+    return input.replace(/[.]/g, "-");
   }
 
-  // dd-mm-yyyy or dd.mm.yyyy
-  match = input.match(/^(\d{2})[-.](\d{2})[-.](\d{4})$/);
-  if (match) {
-    const [_, d, m, y] = match;
-    return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+  // dd.mm.yyyy or dd-mm-yyyy
+  if (/^\d{2}[.-]\d{2}[.-]\d{4}$/.test(input)) {
+    const parts = input.split(/[.-]/);
+    return `${parts[2]}-${parts[1]}-${parts[0]}`;
   }
 
-  return null; // invalid format
+  return ""; // invalid
 }
 
 // =====================
@@ -155,16 +153,15 @@ function generateEmail() {
   const appRaw = document.getElementById("app").value.trim();
   const capitalizedApp = toTitleCase(appRaw);
   const env = document.getElementById("env").value.trim();
-  const dateInput = document.getElementById("date").value;
-  const parsedDate = parseDateInput(dateInput);
+  const date = document.getElementById("date").value;
   const time = document.getElementById("time").value;
   const downtime = document.getElementById("downtime").value === "Other" 
                    ? document.getElementById("customDowntime").value.trim() 
                    : document.getElementById("downtime").value.trim();
   const release = document.getElementById("release").value.trim() || "N/A";
 
-  if (!capitalizedApp || !env || !parsedDate || !time || !downtime) {
-    alert("Please fill all required fields. Make sure date is in format: yyyy-mm-dd, yyyy.mm.dd, dd-mm-yyyy, dd.mm.yyyy");
+  if (!capitalizedApp || !env || !date || !time || !downtime) {
+    alert("Please fill all required fields.");
     return;
   }
   if(emailList.length === 0) {
@@ -172,16 +169,17 @@ function generateEmail() {
     return;
   }
 
-  const [hours, minutes] = time.split(":").map(Number);
-  parsedDate.setHours(hours, minutes);
-
+  const startDateTime = new Date(`${date}T${time}`);
   const downtimeMinutes = parseDowntime(downtime);
-  const endDateTime = new Date(parsedDate.getTime() + downtimeMinutes*60000);
+  const endDateTime = new Date(startDateTime.getTime() + downtimeMinutes*60000);
 
-  const formattedDate = parsedDate.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
-  const formattedStart = parsedDate.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false}) + " CEST";
+  const formattedDate = startDateTime.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const formattedStart = startDateTime.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false}) + " CEST";
   const formattedEnd = endDateTime.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false}) + " CEST";
 
+  // =====================
+  // Email preview
+  // =====================
   const subject = `[REMINDER] Software Installation on ${formattedDate} – ${env}`;
   const bodyText = `Dear Sir or Madam,
 
@@ -219,8 +217,58 @@ OSS DevOps Team.`;
 }
 
 // =====================
-// Prefill helper
+// Generate prefill link
 // =====================
+function generatePrefillLink() {
+  const params = new URLSearchParams();
+  params.set("app", document.getElementById("app").value);
+  params.set("env", document.getElementById("env").value);
+  params.set("date", document.getElementById("date").value);
+  params.set("time", document.getElementById("time").value);
+  const downtimeVal = document.getElementById("downtime").value === "Other" 
+                      ? document.getElementById("customDowntime").value 
+                      : document.getElementById("downtime").value;
+  params.set("downtime", downtimeVal);
+  params.set("release", document.getElementById("release").value);
+
+  return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+}
+
+// =====================
+// Auto-prefill from URL
+// =====================
+(function() {
+  const params = new URLSearchParams(window.location.search);
+
+  const appParam = params.get("app") ? decodeURIComponent(params.get("app")) : null;
+  const envParam = params.get("env") ? decodeURIComponent(params.get("env")) : null;
+  const dateParam = params.get("date") ? decodeURIComponent(params.get("date")) : null;
+  const timeParam = params.get("time") ? decodeURIComponent(params.get("time")) : null;
+  const downtimeParam = params.get("downtime") ? decodeURIComponent(params.get("downtime")) : null;
+  const releaseParam = params.get("release") ? decodeURIComponent(params.get("release")) : null;
+
+  const prefillForm = () => {
+    if(envParam) envSelect.value = envParam;
+    if(dateParam) document.getElementById("date").value = normalizeDate(dateParam);
+    if(timeParam) document.getElementById("time").value = timeParam;
+    if(downtimeParam) {
+      if(downtimes.includes(downtimeParam)) { downtimeSelect.value = downtimeParam; toggleCustomDowntime(); }
+      else { downtimeSelect.value="Other"; toggleCustomDowntime(); document.getElementById("customDowntime").value=downtimeParam; }
+    }
+    if(releaseParam) document.getElementById("release").value = releaseParam;
+
+    generateEmail();
+  };
+
+  if(appParam) {
+    const matchApp = apps.find(a => a.toLowerCase()===appParam.toLowerCase());
+    if(matchApp) {
+      appSelect.value = matchApp;
+      loadEmails(prefillForm);
+    } else prefillForm();
+  } else prefillForm();
+})();
+
 function prefillEmailPreview() { generateEmail(); }
 </script>
 
