@@ -31,7 +31,7 @@
 </select>
 
 <label for="date">Deployment Date:</label>
-<input type="date" id="date">
+<input type="text" id="date" placeholder="Enter date (yyyy-mm-dd, yyyy.mm.dd, dd-mm-yyyy, dd.mm.yyyy)">
 
 <label for="time">Deployment Time:</label>
 <input type="time" id="time">
@@ -70,6 +70,27 @@ envs.forEach(e => { const opt = document.createElement("option"); opt.value = e;
 
 const downtimeSelect = document.getElementById("downtime");
 downtimes.forEach(d => { const opt = document.createElement("option"); opt.value = d; opt.textContent = d; downtimeSelect.appendChild(opt); });
+
+// =====================
+// Date parsing utility
+// =====================
+function parseDateInput(input) {
+  if (!input) return null;
+  input = input.trim();
+
+  // yyyy-mm-dd or yyyy.mm.dd
+  if (/^\d{4}[-.]\d{2}[-.]\d{2}$/.test(input)) {
+    return new Date(input.replace(/\./g, "-"));
+  }
+
+  // dd-mm-yyyy or dd.mm.yyyy
+  if (/^\d{2}[-.]\d{2}[-.]\d{4}$/.test(input)) {
+    const parts = input.split(/[-.]/);
+    return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+  }
+
+  return null; // invalid format
+}
 
 // =====================
 // Email validation
@@ -131,15 +152,16 @@ function generateEmail() {
   const appRaw = document.getElementById("app").value.trim();
   const capitalizedApp = toTitleCase(appRaw);
   const env = document.getElementById("env").value.trim();
-  const date = document.getElementById("date").value;
+  const dateInput = document.getElementById("date").value;
+  const parsedDate = parseDateInput(dateInput);
   const time = document.getElementById("time").value;
   const downtime = document.getElementById("downtime").value === "Other" 
                    ? document.getElementById("customDowntime").value.trim() 
                    : document.getElementById("downtime").value.trim();
   const release = document.getElementById("release").value.trim() || "N/A";
 
-  if (!capitalizedApp || !env || !date || !time || !downtime) {
-    alert("Please fill all required fields.");
+  if (!capitalizedApp || !env || !parsedDate || !time || !downtime) {
+    alert("Please fill all required fields (check date format).");
     return;
   }
   if(emailList.length === 0) {
@@ -147,7 +169,7 @@ function generateEmail() {
     return;
   }
 
-  const startDateTime = new Date(`${date}T${time}`);
+  const startDateTime = new Date(`${parsedDate.toISOString().split("T")[0]}T${time}`);
   const downtimeMinutes = parseDowntime(downtime);
   const endDateTime = new Date(startDateTime.getTime() + downtimeMinutes*60000);
 
@@ -194,62 +216,8 @@ OSS DevOps Team.`;
 <button onclick="window.location.href='${mailto}'">Open in Outlook</button>`;
 }
 
-// =====================
-// Generate prefill link
-// =====================
-function generatePrefillLink() {
-  const params = new URLSearchParams();
-  params.set("app", document.getElementById("app").value);
-  params.set("env", document.getElementById("env").value);
-  params.set("date", document.getElementById("date").value);
-  params.set("time", document.getElementById("time").value);
-  const downtimeVal = document.getElementById("downtime").value === "Other" 
-                      ? document.getElementById("customDowntime").value 
-                      : document.getElementById("downtime").value;
-  params.set("downtime", downtimeVal);
-  params.set("release", document.getElementById("release").value);
-
-  return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
-}
-
-// =====================
-// Auto-prefill from URL
-// =====================
-(function() {
-  const params = new URLSearchParams(window.location.search);
-
-  const appParam = params.get("app") ? decodeURIComponent(params.get("app")) : null;
-  const envParam = params.get("env") ? decodeURIComponent(params.get("env")) : null;
-  const dateParam = params.get("date") ? decodeURIComponent(params.get("date")) : null;
-  const timeParam = params.get("time") ? decodeURIComponent(params.get("time")) : null;
-  const downtimeParam = params.get("downtime") ? decodeURIComponent(params.get("downtime")) : null;
-  const releaseParam = params.get("release") ? decodeURIComponent(params.get("release")) : null;
-
-  const prefillForm = () => {
-    if(envParam) envSelect.value = envParam;
-    if(dateParam) document.getElementById("date").value = dateParam;
-    if(timeParam) document.getElementById("time").value = timeParam;
-    if(downtimeParam) {
-      if(downtimes.includes(downtimeParam)) { downtimeSelect.value = downtimeParam; toggleCustomDowntime(); }
-      else { downtimeSelect.value="Other"; toggleCustomDowntime(); document.getElementById("customDowntime").value=downtimeParam; }
-    }
-    if(releaseParam) document.getElementById("release").value = releaseParam;
-
-    generateEmail();
-  };
-
-  if(appParam) {
-    const matchApp = apps.find(a => a.toLowerCase()===appParam.toLowerCase());
-    if(matchApp) {
-      appSelect.value = matchApp;
-      loadEmails(prefillForm);
-    } else prefillForm();
-  } else prefillForm();
-})();
-
 function prefillEmailPreview() { generateEmail(); }
 </script>
 
 </body>
 </html>
-
