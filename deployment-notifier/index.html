@@ -31,7 +31,7 @@
 </select>
 
 <label for="date">Deployment Date:</label>
-<input type="text" id="date" placeholder="Enter date (yyyy-mm-dd, yyyy.mm.dd, dd-mm-yyyy, dd.mm.yyyy)">
+<input type="text" id="date" placeholder="yyyy-mm-dd, yyyy.mm.dd, dd-mm-yyyy, dd.mm.yyyy">
 
 <label for="time">Deployment Time:</label>
 <input type="time" id="time">
@@ -70,27 +70,6 @@ envs.forEach(e => { const opt = document.createElement("option"); opt.value = e;
 
 const downtimeSelect = document.getElementById("downtime");
 downtimes.forEach(d => { const opt = document.createElement("option"); opt.value = d; opt.textContent = d; downtimeSelect.appendChild(opt); });
-
-// =====================
-// Date parsing utility
-// =====================
-function parseDateInput(input) {
-  if (!input) return null;
-  input = input.trim();
-
-  // yyyy-mm-dd or yyyy.mm.dd
-  if (/^\d{4}[-.]\d{2}[-.]\d{2}$/.test(input)) {
-    return new Date(input.replace(/\./g, "-"));
-  }
-
-  // dd-mm-yyyy or dd.mm.yyyy
-  if (/^\d{2}[-.]\d{2}[-.]\d{4}$/.test(input)) {
-    const parts = input.split(/[-.]/);
-    return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-  }
-
-  return null; // invalid format
-}
 
 // =====================
 // Email validation
@@ -146,6 +125,30 @@ function parseDowntime(downtime) {
 }
 
 // =====================
+// Date parsing
+// =====================
+function parseDateInput(input) {
+  if (!input) return null;
+  input = input.trim();
+
+  // yyyy-mm-dd or yyyy.mm.dd
+  let match = input.match(/^(\d{4})[-.](\d{2})[-.](\d{2})$/);
+  if (match) {
+    const [_, y, m, d] = match;
+    return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+  }
+
+  // dd-mm-yyyy or dd.mm.yyyy
+  match = input.match(/^(\d{2})[-.](\d{2})[-.](\d{4})$/);
+  if (match) {
+    const [_, d, m, y] = match;
+    return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+  }
+
+  return null; // invalid format
+}
+
+// =====================
 // Generate summary & email preview
 // =====================
 function generateEmail() {
@@ -161,7 +164,7 @@ function generateEmail() {
   const release = document.getElementById("release").value.trim() || "N/A";
 
   if (!capitalizedApp || !env || !parsedDate || !time || !downtime) {
-    alert("Please fill all required fields (check date format).");
+    alert("Please fill all required fields. Make sure date is in format: yyyy-mm-dd, yyyy.mm.dd, dd-mm-yyyy, dd.mm.yyyy");
     return;
   }
   if(emailList.length === 0) {
@@ -169,17 +172,16 @@ function generateEmail() {
     return;
   }
 
-  const startDateTime = new Date(`${parsedDate.toISOString().split("T")[0]}T${time}`);
-  const downtimeMinutes = parseDowntime(downtime);
-  const endDateTime = new Date(startDateTime.getTime() + downtimeMinutes*60000);
+  const [hours, minutes] = time.split(":").map(Number);
+  parsedDate.setHours(hours, minutes);
 
-  const formattedDate = startDateTime.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
-  const formattedStart = startDateTime.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false}) + " CEST";
+  const downtimeMinutes = parseDowntime(downtime);
+  const endDateTime = new Date(parsedDate.getTime() + downtimeMinutes*60000);
+
+  const formattedDate = parsedDate.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const formattedStart = parsedDate.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false}) + " CEST";
   const formattedEnd = endDateTime.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false}) + " CEST";
 
-  // =====================
-  // Email preview
-  // =====================
   const subject = `[REMINDER] Software Installation on ${formattedDate} – ${env}`;
   const bodyText = `Dear Sir or Madam,
 
@@ -216,6 +218,9 @@ OSS DevOps Team.`;
 <button onclick="window.location.href='${mailto}'">Open in Outlook</button>`;
 }
 
+// =====================
+// Prefill helper
+// =====================
 function prefillEmailPreview() { generateEmail(); }
 </script>
 
